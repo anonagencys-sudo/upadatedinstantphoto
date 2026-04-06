@@ -230,19 +230,6 @@
           <input type="hidden" id="bgColorValue" value="#FFFFFF" />
         </div>
 
-        <div id="photoPreviewSection" class="hidden mt-6 bg-gray-900/50 p-5 rounded-xl border border-gray-700">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-            <div>
-              <p class="text-sm font-semibold text-gray-200">Live Photo Preview</p>
-              <p class="text-xs text-gray-400">Preview after crop and background removal</p>
-            </div>
-            <span id="photoPreviewStatus" class="text-xs text-gray-400">Upload and crop a photo to preview</span>
-          </div>
-          <div class="flex justify-center">
-            <canvas id="photoPreviewCanvas" class="max-w-full rounded-xl border border-gray-700 bg-gray-950"></canvas>
-          </div>
-        </div>
-
         <!-- Advanced Options -->
         <div class="mt-6 space-y-4">
           <div class="text-center">
@@ -1310,14 +1297,11 @@
     // PHOTO MODE (unchanged)
     // ════════════════════════════════════════════════════════════════
     let photos=[], nextId=0, activeCropper=null, pendingCropId=null;
-    let previewPhotoId=null, previewTransparentUrl=null, previewSourceKey=null, previewRenderToken=0;
     const dropZone=document.getElementById('dropZone'),imageInput=document.getElementById('imageInput');
     const photoList=document.getElementById('photoList'),addMoreWrapper=document.getElementById('addMoreWrapper');
     const generateBtn=document.getElementById('generateBtn'),downloadPhotoBtn=document.getElementById('downloadPhotoBtn'),downloadBtn=document.getElementById('downloadBtn');
     const pdfPreview=document.getElementById('pdfPreview'),loading=document.getElementById('loading');
     const cropperModal=document.getElementById('cropperModal'),cropModalImage=document.getElementById('cropModalImage');
-    const photoPreviewSection=document.getElementById('photoPreviewSection'),photoPreviewCanvas=document.getElementById('photoPreviewCanvas');
-    const photoPreviewStatus=document.getElementById('photoPreviewStatus');
 
     function fileToDataURL(file){
       return new Promise((resolve,reject)=>{
@@ -1327,119 +1311,16 @@
         reader.readAsDataURL(file);
       });
     }
-    function getPreviewSourceFile(photo){
-      return photo ? (photo.croppedFile || photo.originalFile) : null;
-    }
-    function getPreviewSourceKey(photo){
-      const file=getPreviewSourceFile(photo);
-      return file ? `${photo.id}:${file.name}:${file.size}:${file.lastModified||0}` : '';
-    }
-    function setPreviewStatus(text,color='text-gray-400'){
-      photoPreviewStatus.className=`text-xs ${color}`;
-      photoPreviewStatus.textContent=text;
-    }
-    async function drawPreviewCanvas(){
-      if(!previewTransparentUrl){return;}
-      const transparentImg=await adLoadImg(previewTransparentUrl);
-      const maxWidth=360;
-      const scale=Math.min(maxWidth/(transparentImg.naturalWidth||transparentImg.width),1);
-      const width=Math.max(1,Math.round((transparentImg.naturalWidth||transparentImg.width)*scale));
-      const height=Math.max(1,Math.round((transparentImg.naturalHeight||transparentImg.height)*scale));
-      photoPreviewCanvas.width=width;
-      photoPreviewCanvas.height=height;
-      const ctx=photoPreviewCanvas.getContext('2d');
-      ctx.fillStyle=document.getElementById('bgColorValue').value;
-      ctx.fillRect(0,0,width,height);
-      ctx.drawImage(transparentImg,0,0,width,height);
-      photoPreviewSection.classList.remove('hidden');
-    }
-    async function fetchPreviewPhotoBlob(file){
-      const formData=new FormData();
-      formData.append('image',file);
-      const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:formData});
-      if(response.status===429) throw new Error('Preview quota exceeded. Try again later.');
-      if(!response.ok) throw new Error('Background removal preview failed.');
-      return response.blob();
-    }
-    async function refreshPhotoPreview(forceReprocess=false, preferredId=null){
-      if(!photos.length){
-        previewPhotoId=null;
-        previewTransparentUrl=null;
-        previewSourceKey=null;
-        photoPreviewSection.classList.add('hidden');
-        return;
-      }
-      if(preferredId!==null){ previewPhotoId=preferredId; }
-      if(previewPhotoId===null || !photos.some(photo=>photo.id===previewPhotoId)){ previewPhotoId=photos[0].id; }
-      const photo=photos.find(item=>item.id===previewPhotoId) || photos[0];
-      const sourceFile=getPreviewSourceFile(photo);
-      if(!sourceFile){
-        photoPreviewSection.classList.add('hidden');
-        return;
-      }
-
-      const sourceKey=getPreviewSourceKey(photo);
-      if(!forceReprocess && previewTransparentUrl && previewSourceKey===sourceKey){
-        await drawPreviewCanvas();
-        setPreviewStatus('Live preview ready','text-green-400');
-        return;
-      }
-
-      const currentToken=++previewRenderToken;
-      setPreviewStatus('Removing background for preview...','text-blue-400');
-      photoPreviewSection.classList.remove('hidden');
-
-      try{
-        const blob=await fetchPreviewPhotoBlob(sourceFile);
-        if(currentToken!==previewRenderToken){ return; }
-        if(previewTransparentUrl && previewTransparentUrl.startsWith('blob:')) URL.revokeObjectURL(previewTransparentUrl);
-        previewTransparentUrl=URL.createObjectURL(blob);
-        previewSourceKey=sourceKey;
-        await drawPreviewCanvas();
-        setPreviewStatus('Live preview ready','text-green-400');
-      }catch(error){
-        if(currentToken!==previewRenderToken){ return; }
-        if(previewTransparentUrl && previewTransparentUrl.startsWith('blob:')) URL.revokeObjectURL(previewTransparentUrl);
-        previewTransparentUrl=null;
-        previewSourceKey=sourceKey;
-        photoPreviewSection.classList.add('hidden');
-        setPreviewStatus(error.message || 'Preview failed','text-red-400');
-        throw error;
-      }
-    }
-    async function removePhotoBackground(file){
-      return fetchPreviewPhotoBlob(file);
-    }
     async function downloadPhotoAsJpeg(){
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
-      const photo=(previewPhotoId!==null && photos.some(item=>item.id===previewPhotoId))
-        ? photos.find(item=>item.id===previewPhotoId)
-        : photos[0];
+      const photo=photos[0];
       const photoNumber=1;
       const sourceFile=photo.croppedFile||photo.originalFile;
       downloadPhotoBtn.disabled=true;
       downloadPhotoBtn.textContent='Preparing...';
       try{
-        if(previewTransparentUrl && photoPreviewCanvas.width > 0 && photoPreviewCanvas.height > 0 && !photoPreviewSection.classList.contains('hidden')){
-          photoPreviewCanvas.toBlob(blob=>{
-            if(!blob){showNotification("Could not create JPEG. Try again.");return;}
-            downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
-            showNotification("Photo downloaded!",false);
-          },'image/jpeg',0.95);
-          return;
-        }
-
-        downloadPhotoBtn.textContent='Removing BG...';
-        let processedUrl='';
-        let shouldRevoke=false;
-        if(previewTransparentUrl){
-          processedUrl=previewTransparentUrl;
-        }else{
-          const removedBgBlob=await removePhotoBackground(sourceFile);
-          processedUrl=URL.createObjectURL(removedBgBlob);
-          shouldRevoke=true;
-        }
-        const img=await adLoadImg(processedUrl);
+        const sourceDataUrl=photo.croppedFile ? photo.previewUrl : await fileToDataURL(sourceFile);
+        const img=await adLoadImg(sourceDataUrl);
         const canvas=document.createElement('canvas');
         canvas.width=img.naturalWidth||img.width;
         canvas.height=img.naturalHeight||img.height;
@@ -1448,7 +1329,6 @@
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(img,0,0,canvas.width,canvas.height);
         canvas.toBlob(blob=>{
-          if(shouldRevoke) URL.revokeObjectURL(processedUrl);
           if(!blob){showNotification("Could not create JPEG. Try again.");return;}
           downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
           showNotification("Background removed and photo downloaded!",false);
@@ -1466,13 +1346,13 @@
       photos.forEach(photo=>{
         const card=document.createElement('div');
         card.className='photo-card flex items-center gap-4 bg-gray-900/60 border border-gray-700 rounded-xl p-4';
-        card.innerHTML=`<img src="${photo.previewUrl}" class="w-16 h-20 object-cover rounded-lg border border-gray-600 flex-shrink-0"/><div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-200 truncate">${photo.originalFile.name}</p><p class="text-xs text-gray-500 mt-0.5">${photo.croppedFile?'✅ Cropped':'⚠️ Not cropped'}</p></div><div class="flex flex-col items-center gap-1"><label class="text-xs text-gray-400">Copies</label><input type="number" value="${photo.copies}" min="1" max="54" class="bg-gray-700 border border-gray-600 rounded-lg w-16 p-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" data-id="${photo.id}"/></div><div class="flex flex-col gap-2"><button class="preview-btn text-xs bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Preview</button><button class="crop-btn text-xs bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Crop</button><button class="remove-btn text-xs bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Remove</button></div>`;
+        card.innerHTML=`<img src="${photo.previewUrl}" class="w-16 h-20 object-cover rounded-lg border border-gray-600 flex-shrink-0"/><div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-200 truncate">${photo.originalFile.name}</p><p class="text-xs text-gray-500 mt-0.5">${photo.croppedFile?'Cropped':'Not cropped'}</p></div><div class="flex flex-col items-center gap-1"><label class="text-xs text-gray-400">Copies</label><input type="number" value="${photo.copies}" min="1" max="54" class="bg-gray-700 border border-gray-600 rounded-lg w-16 p-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" data-id="${photo.id}"/></div><div class="flex flex-col gap-2"><button class="rotate-photo-btn text-xs bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Rotate</button><button class="crop-btn text-xs bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Crop</button><button class="remove-btn text-xs bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Remove</button></div>`;
         photoList.appendChild(card);
       });
       photoList.querySelectorAll('input[type=number]').forEach(input=>input.addEventListener('change',e=>{const p=photos.find(p=>p.id===parseInt(e.target.dataset.id));if(p)p.copies=Math.max(1,parseInt(e.target.value)||1);}));
-      photoList.querySelectorAll('.preview-btn').forEach(btn=>btn.addEventListener('click',e=>{refreshPhotoPreview(false,parseInt(e.target.dataset.id)).catch(error=>{setPreviewStatus(error.message || 'Preview failed','text-red-400');showNotification(error.message || "Preview failed. Try again.");});}));
+      photoList.querySelectorAll('.rotate-photo-btn').forEach(btn=>btn.addEventListener('click',e=>{rotatePhoto(parseInt(e.target.dataset.id)).catch(()=>showNotification("Could not rotate photo. Try again."));}));
       photoList.querySelectorAll('.crop-btn').forEach(btn=>btn.addEventListener('click',e=>openCropper(parseInt(e.target.dataset.id))));
-      photoList.querySelectorAll('.remove-btn').forEach(btn=>btn.addEventListener('click',e=>{const removedId=parseInt(e.target.dataset.id);photos=photos.filter(p=>p.id!==removedId);if(previewPhotoId===removedId){previewPhotoId=photos.length?photos[0].id:null;previewTransparentUrl=null;previewSourceKey=null;}renderPhotoList();if(photos.length===0)addMoreWrapper.classList.add('hidden');refreshPhotoPreview(false).catch(()=>{});}));
+      photoList.querySelectorAll('.remove-btn').forEach(btn=>btn.addEventListener('click',e=>{photos=photos.filter(p=>p.id!==parseInt(e.target.dataset.id));renderPhotoList();if(photos.length===0)addMoreWrapper.classList.add('hidden');}));
       addMoreWrapper.classList.toggle('hidden',photos.length===0);
     }
     async function addFiles(files){
@@ -1484,7 +1364,6 @@
       }
       if(!added)showNotification("Please upload valid image files.");
       renderPhotoList();
-      if(added){ refreshPhotoPreview(true,photos[photos.length-1].id).catch(error=>setPreviewStatus(error.message || 'Preview failed','text-red-400')); }
     }
     dropZone.addEventListener('click',()=>imageInput.click());
     dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('border-blue-400');});
@@ -1493,7 +1372,7 @@
     imageInput.addEventListener('change',()=>{addFiles(imageInput.files).catch(()=>showNotification("Could not prepare images. Try again."));imageInput.value='';});
     document.getElementById('addMoreBtn').addEventListener('click',()=>imageInput.click());
     function openCropper(id){const photo=photos.find(p=>p.id===id);if(!photo)return;pendingCropId=id;cropModalImage.src=photo.previewUrl;cropperModal.classList.remove('hidden');if(activeCropper)activeCropper.destroy();activeCropper=new Cropper(cropModalImage,{aspectRatio:384/472,viewMode:1,dragMode:'move',autoCropArea:1});}
-    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/jpeg'});if(photo.previewUrl&&photo.previewUrl.startsWith('blob:'))URL.revokeObjectURL(photo.previewUrl);photo.previewUrl=URL.createObjectURL(photo.croppedFile);const previewId=pendingCropId;activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();refreshPhotoPreview(true,previewId).catch(error=>setPreviewStatus(error.message || 'Preview failed','text-red-400'));showNotification("Photo cropped successfully.",false);},'image/jpeg',0.95);});
+    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/jpeg'});if(photo.previewUrl&&photo.previewUrl.startsWith('blob:'))URL.revokeObjectURL(photo.previewUrl);photo.previewUrl=URL.createObjectURL(photo.croppedFile);activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);},'image/jpeg',0.95);});
     document.getElementById('cancelCropBtn').addEventListener('click',()=>{if(activeCropper){activeCropper.destroy();activeCropper=null;}pendingCropId=null;cropperModal.classList.add('hidden');});
     document.getElementById('toggleAdvanced').addEventListener('click',function(){const el=document.getElementById('advancedOptions');const visible=el.style.display==='block';el.style.display=visible?'none':'block';this.textContent=visible?'Advanced Options':'Hide Advanced Options';});
     downloadPhotoBtn.addEventListener('click',()=>{downloadPhotoAsJpeg().catch(error=>showNotification(error.message || "Could not download JPEG. Try again."));});
@@ -1505,9 +1384,9 @@
       loading.classList.remove('hidden');generateBtn.disabled=true;downloadBtn.classList.add('hidden');pdfPreview.classList.add('hidden');
       fetch((window.BACKEND_URL||'')+'/process',{method:'POST',body:fd}).then(async r=>{if(r.status===429){showNotification("Quota Exceeded. Try again later.");return null;}if(r.status===410){showNotification("Cannot detect face in one of the images.");return null;}if(!r.ok)throw new Error();return r.blob();}).then(blob=>{if(!blob)return;const url=URL.createObjectURL(blob);pdfPreview.classList.remove('hidden');pdfPreview.src=url;downloadBtn.classList.remove('hidden');downloadBtn.onclick=()=>{const a=document.createElement('a');a.href=url;a.download='passport-sheet.pdf';a.click();};showNotification("PDF generated!",false);}).catch(()=>showNotification("Processing failed. Try again.")).finally(()=>{loading.classList.add('hidden');generateBtn.disabled=false;});
     });
-    function setSelectedColor(hex){document.getElementById('bgColorValue').value=hex;document.getElementById('selectedColorPreview').style.background=hex;document.getElementById('customBgColor').value=hex;document.querySelectorAll('.bg-color-btn').forEach(btn=>{const m=btn.dataset.color===hex;btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);});drawPreviewCanvas().catch(()=>{});}
+    function setSelectedColor(hex){document.getElementById('bgColorValue').value=hex;document.getElementById('selectedColorPreview').style.background=hex;document.getElementById('customBgColor').value=hex;document.querySelectorAll('.bg-color-btn').forEach(btn=>{const m=btn.dataset.color===hex;btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);});}
     document.querySelectorAll('.bg-color-btn').forEach(btn=>btn.addEventListener('click',()=>setSelectedColor(btn.dataset.color)));
-    document.getElementById('customBgColor').addEventListener('input',e=>{document.querySelectorAll('.bg-color-btn').forEach(b=>{b.classList.remove('ring-blue-400','border-blue-400');b.classList.add('ring-transparent','border-transparent');});document.getElementById('bgColorValue').value=e.target.value;document.getElementById('selectedColorPreview').style.background=e.target.value;drawPreviewCanvas().catch(()=>{});});
+    document.getElementById('customBgColor').addEventListener('input',e=>{document.querySelectorAll('.bg-color-btn').forEach(b=>{b.classList.remove('ring-blue-400','border-blue-400');b.classList.add('ring-transparent','border-transparent');});document.getElementById('bgColorValue').value=e.target.value;document.getElementById('selectedColorPreview').style.background=e.target.value;});
     setSelectedColor('#FFFFFF');
 
     // ─── Feedback ────────────────────────────────────────────────────
