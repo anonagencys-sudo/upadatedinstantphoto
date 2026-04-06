@@ -1327,6 +1327,12 @@
         reader.readAsDataURL(file);
       });
     }
+    function getBackendBaseUrl(){
+      const configured=(window.BACKEND_URL||'').trim().replace(/\/+$/,'');
+      if(configured) return configured;
+      if(window.location.protocol==='file:') return 'http://127.0.0.1:5000';
+      return '';
+    }
     function getPreviewSourceFile(photo){
       return photo ? (photo.croppedFile || photo.originalFile) : null;
     }
@@ -1339,8 +1345,11 @@
       photoPreviewStatus.textContent=text;
     }
     async function drawPreviewCanvas(){
-      if(!previewTransparentUrl){return;}
-      const transparentImg=await adLoadImg(previewTransparentUrl);
+      const photo=previewPhotoId===null?null:(photos.find(item=>item.id===previewPhotoId)||null);
+      const sourceFile=getPreviewSourceFile(photo);
+      const sourceUrl=previewTransparentUrl || (photo ? photo.previewUrl : '');
+      if(!sourceUrl && !sourceFile){return;}
+      const transparentImg=await adLoadImg(sourceUrl || await fileToDataURL(sourceFile));
       const maxWidth=360;
       const scale=Math.min(maxWidth/(transparentImg.naturalWidth||transparentImg.width),1);
       const width=Math.max(1,Math.round((transparentImg.naturalWidth||transparentImg.width)*scale));
@@ -1352,6 +1361,14 @@
       ctx.fillRect(0,0,width,height);
       ctx.drawImage(transparentImg,0,0,width,height);
       photoPreviewSection.classList.remove('hidden');
+    }
+    async function fetchPreviewPhotoBlob(file){
+      const formData=new FormData();
+      formData.append('image',file);
+      const response=await fetch(getBackendBaseUrl()+'/preview-photo',{method:'POST',body:formData});
+      if(response.status===429) throw new Error('Preview quota exceeded. Try again later.');
+      if(!response.ok) throw new Error('Background removal preview failed.');
+      return response.blob();
     }
     async function refreshPhotoPreview(forceReprocess=false, preferredId=null){
       if(!photos.length){
@@ -1381,41 +1398,46 @@
       setPreviewStatus('Removing background for preview...','text-blue-400');
       photoPreviewSection.classList.remove('hidden');
 
-      const formData=new FormData();
-      formData.append('image',sourceFile);
-
-      const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:formData});
-      if(currentToken!==previewRenderToken){ return; }
-      if(!response.ok){
-        if(response.status===429){ throw new Error('Preview quota exceeded'); }
-        throw new Error('Preview failed');
+      try{
+        const blob=await fetchPreviewPhotoBlob(sourceFile);
+        if(currentToken!==previewRenderToken){ return; }
+        if(previewTransparentUrl && previewTransparentUrl.startsWith('blob:')) URL.revokeObjectURL(previewTransparentUrl);
+        previewTransparentUrl=URL.createObjectURL(blob);
+        previewSourceKey=sourceKey;
+        await drawPreviewCanvas();
+        setPreviewStatus('Live preview ready','text-green-400');
+      }catch(error){
+        if(currentToken!==previewRenderToken){ return; }
+        if(previewTransparentUrl && previewTransparentUrl.startsWith('blob:')) URL.revokeObjectURL(previewTransparentUrl);
+        previewTransparentUrl=null;
+        previewSourceKey=sourceKey;
+        await drawPreviewCanvas();
+        setPreviewStatus(error.message || 'Showing original preview','text-yellow-400');
       }
-
-      const blob=await response.blob();
-      if(previewTransparentUrl && previewTransparentUrl.startsWith('blob:')) URL.revokeObjectURL(previewTransparentUrl);
-      previewTransparentUrl=URL.createObjectURL(blob);
-      previewSourceKey=sourceKey;
-      await drawPreviewCanvas();
-      setPreviewStatus('Live preview ready','text-green-400');
     }
     async function removePhotoBackground(file){
-      const fd=new FormData();
-      fd.append('image',file);
-      const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:fd});
-      if(response.status===429) throw new Error('Quota Exceeded. Try again later.');
-      if(!response.ok) throw new Error('Background removal failed. Try again.');
-      return response.blob();
+      return fetchPreviewPhotoBlob(file);
     }
     async function downloadPhotoAsJpeg(){
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
-      const photo=photos[0];
+      const photo=(previewPhotoId!==null && photos.some(item=>item.id===previewPhotoId))
+        ? photos.find(item=>item.id===previewPhotoId)
+        : photos[0];
       const photoNumber=1;
       const sourceFile=photo.croppedFile||photo.originalFile;
+      const sourceKey=getPreviewSourceKey(photo);
       downloadPhotoBtn.disabled=true;
       downloadPhotoBtn.textContent='Removing BG...';
       try{
-        const removedBgBlob=await removePhotoBackground(sourceFile);
-        const processedUrl=URL.createObjectURL(removedBgBlob);
+        let processedUrl='';
+        let shouldRevoke=false;
+        if(previewTransparentUrl && previewSourceKey===sourceKey){
+          processedUrl=previewTransparentUrl;
+        }else{
+          const removedBgBlob=await removePhotoBackground(sourceFile);
+          processedUrl=URL.createObjectURL(removedBgBlob);
+          shouldRevoke=true;
+        }
         const img=await adLoadImg(processedUrl);
         const canvas=document.createElement('canvas');
         canvas.width=img.naturalWidth||img.width;
@@ -1425,11 +1447,13 @@
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(img,0,0,canvas.width,canvas.height);
         canvas.toBlob(blob=>{
-          URL.revokeObjectURL(processedUrl);
+          if(shouldRevoke) URL.revokeObjectURL(processedUrl);
           if(!blob){showNotification("Could not create JPEG. Try again.");return;}
           downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
           showNotification("Background removed and photo downloaded!",false);
         },'image/jpeg',0.95);
+      }catch(error){
+        showNotification(error.message || "Could not download JPEG. Try again.");
       }finally{
         downloadPhotoBtn.disabled=false;
         downloadPhotoBtn.textContent='Download Photo';
@@ -1445,7 +1469,7 @@
         photoList.appendChild(card);
       });
       photoList.querySelectorAll('input[type=number]').forEach(input=>input.addEventListener('change',e=>{const p=photos.find(p=>p.id===parseInt(e.target.dataset.id));if(p)p.copies=Math.max(1,parseInt(e.target.value)||1);}));
-      photoList.querySelectorAll('.preview-btn').forEach(btn=>btn.addEventListener('click',e=>{refreshPhotoPreview(false,parseInt(e.target.dataset.id)).catch(()=>{setPreviewStatus('Preview failed','text-red-400');showNotification("Preview failed. Try again.");});}));
+      photoList.querySelectorAll('.preview-btn').forEach(btn=>btn.addEventListener('click',e=>{refreshPhotoPreview(false,parseInt(e.target.dataset.id)).catch(error=>{setPreviewStatus(error.message || 'Preview failed','text-red-400');showNotification(error.message || "Preview failed. Try again.");});}));
       photoList.querySelectorAll('.crop-btn').forEach(btn=>btn.addEventListener('click',e=>openCropper(parseInt(e.target.dataset.id))));
       photoList.querySelectorAll('.remove-btn').forEach(btn=>btn.addEventListener('click',e=>{const removedId=parseInt(e.target.dataset.id);photos=photos.filter(p=>p.id!==removedId);if(previewPhotoId===removedId){previewPhotoId=photos.length?photos[0].id:null;previewTransparentUrl=null;previewSourceKey=null;}renderPhotoList();if(photos.length===0)addMoreWrapper.classList.add('hidden');refreshPhotoPreview(false).catch(()=>{});}));
       addMoreWrapper.classList.toggle('hidden',photos.length===0);
@@ -1459,7 +1483,7 @@
       }
       if(!added)showNotification("Please upload valid image files.");
       renderPhotoList();
-      if(added){ refreshPhotoPreview(true,photos[photos.length-1].id).catch(()=>setPreviewStatus('Preview failed','text-red-400')); }
+      if(added){ refreshPhotoPreview(true,photos[photos.length-1].id).catch(error=>setPreviewStatus(error.message || 'Preview failed','text-red-400')); }
     }
     dropZone.addEventListener('click',()=>imageInput.click());
     dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('border-blue-400');});
@@ -1468,10 +1492,10 @@
     imageInput.addEventListener('change',()=>{addFiles(imageInput.files).catch(()=>showNotification("Could not prepare images. Try again."));imageInput.value='';});
     document.getElementById('addMoreBtn').addEventListener('click',()=>imageInput.click());
     function openCropper(id){const photo=photos.find(p=>p.id===id);if(!photo)return;pendingCropId=id;cropModalImage.src=photo.previewUrl;cropperModal.classList.remove('hidden');if(activeCropper)activeCropper.destroy();activeCropper=new Cropper(cropModalImage,{aspectRatio:384/472,viewMode:1,dragMode:'move',autoCropArea:1});}
-    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/jpeg'});if(photo.previewUrl&&photo.previewUrl.startsWith('blob:'))URL.revokeObjectURL(photo.previewUrl);photo.previewUrl=URL.createObjectURL(photo.croppedFile);const previewId=pendingCropId;activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();refreshPhotoPreview(true,previewId).catch(()=>setPreviewStatus('Preview failed','text-red-400'));showNotification("Photo cropped successfully.",false);},'image/jpeg',0.95);});
+    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/jpeg'});if(photo.previewUrl&&photo.previewUrl.startsWith('blob:'))URL.revokeObjectURL(photo.previewUrl);photo.previewUrl=URL.createObjectURL(photo.croppedFile);const previewId=pendingCropId;activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();refreshPhotoPreview(true,previewId).catch(error=>setPreviewStatus(error.message || 'Preview failed','text-red-400'));showNotification("Photo cropped successfully.",false);},'image/jpeg',0.95);});
     document.getElementById('cancelCropBtn').addEventListener('click',()=>{if(activeCropper){activeCropper.destroy();activeCropper=null;}pendingCropId=null;cropperModal.classList.add('hidden');});
     document.getElementById('toggleAdvanced').addEventListener('click',function(){const el=document.getElementById('advancedOptions');const visible=el.style.display==='block';el.style.display=visible?'none':'block';this.textContent=visible?'Advanced Options':'Hide Advanced Options';});
-    downloadPhotoBtn.addEventListener('click',()=>{downloadPhotoAsJpeg().catch(()=>showNotification("Could not download JPEG. Try again."));});
+    downloadPhotoBtn.addEventListener('click',()=>{downloadPhotoAsJpeg().catch(error=>showNotification(error.message || "Could not download JPEG. Try again."));});
     generateBtn.addEventListener('click',()=>{
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       const fd=new FormData();
