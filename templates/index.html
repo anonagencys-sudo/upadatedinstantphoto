@@ -1311,16 +1311,25 @@
         reader.readAsDataURL(file);
       });
     }
+    async function removePhotoBackground(file){
+      const fd=new FormData();
+      fd.append('image',file);
+      const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:fd});
+      if(response.status===429) throw new Error('Quota Exceeded. Try again later.');
+      if(!response.ok) throw new Error('Background removal failed. Try again.');
+      return response.blob();
+    }
     async function downloadPhotoAsJpeg(){
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       const photo=photos[0];
       const photoNumber=1;
       const sourceFile=photo.croppedFile||photo.originalFile;
       downloadPhotoBtn.disabled=true;
-      downloadPhotoBtn.textContent='Preparing...';
+      downloadPhotoBtn.textContent='Removing BG...';
       try{
-        const sourceDataUrl=photo.croppedFile ? photo.previewUrl : await fileToDataURL(sourceFile);
-        const img=await adLoadImg(sourceDataUrl);
+        const removedBgBlob=await removePhotoBackground(sourceFile);
+        const processedUrl=URL.createObjectURL(removedBgBlob);
+        const img=await adLoadImg(processedUrl);
         const canvas=document.createElement('canvas');
         canvas.width=img.naturalWidth||img.width;
         canvas.height=img.naturalHeight||img.height;
@@ -1329,6 +1338,7 @@
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(img,0,0,canvas.width,canvas.height);
         canvas.toBlob(blob=>{
+          URL.revokeObjectURL(processedUrl);
           if(!blob){showNotification("Could not create JPEG. Try again.");return;}
           downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
           showNotification("Background removed and photo downloaded!",false);
