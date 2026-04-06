@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file
+from flask import Flask, request, render_template, send_file, jsonify
 from PIL import Image, ImageOps
 from io import BytesIO
 from dotenv import load_dotenv
@@ -128,12 +128,12 @@ def process():
         except ValueError as e:
             err_str = str(e)
             if "410" in err_str or "face" in err_str.lower():
-                return {"error": "face_detection_failed"}, 410
+                return jsonify({"error": "face_detection_failed"}), 410
             elif "429" in err_str or "quota" in err_str.lower():
-                return {"error": "quota_exceeded"}, 429
+                return jsonify({"error": "quota_exceeded"}), 429
             else:
                 print(err_str)
-                return {"error": err_str}, 500
+                return jsonify({"error": err_str}), 500
 
     paste_w = passport_width + 2 * border
     paste_h = passport_height + 2 * border
@@ -338,7 +338,7 @@ def process_aadhaar():
 
     except Exception as e:
         print(f"Aadhaar error: {e}")
-        return {"error": str(e)}, 500
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/process-pan", methods=["POST"])
@@ -369,7 +369,7 @@ def process_pan():
 
     except Exception as e:
         print(f"PAN error: {e}")
-        return {"error": str(e)}, 500
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
