@@ -93,7 +93,7 @@ def process():
     spacing = int(request.form.get("spacing", 15))
     bg_color_hex = request.form.get("bg_color", "#FFFFFF")
     bg_color_rgb = hex_to_rgb(bg_color_hex)
-    margin_x = 40
+    margin_x = 20
     margin_y = 40
     horizontal_gap = 15
     a4_w, a4_h = 2480, 3508
