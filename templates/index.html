@@ -1454,7 +1454,13 @@
         .then(async r=>{
           if(r.status===429){showNotification("Quota Exceeded. Try again later.");return null;}
           if(r.status===410){showNotification("Cannot detect face in one of the images.");return null;}
-          if(!r.ok)throw new Error();return r.blob();
+          if(!r.ok){
+            let errMsg="Processing failed. Try again.";
+            try{const j=await r.json();if(j&&j.error)errMsg="Error: "+j.error;}catch(e){}
+            showNotification(errMsg);
+            return null;
+          }
+          return r.blob();
         })
         .then(blob=>{
           if(!blob)return;
@@ -1464,7 +1470,7 @@
           downloadBtn.onclick=()=>{const a=document.createElement('a');a.href=url;a.download='passport-sheet.pdf';a.click();};
           showNotification("PDF generated!",false);
         })
-        .catch(()=>showNotification("Processing failed. Try again."))
+        .catch(err=>{console.error('Process error:',err);showNotification("Processing failed. Check console for details.");})
         .finally(()=>{loading.classList.add('hidden');generateBtn.disabled=false;});
     });
 
