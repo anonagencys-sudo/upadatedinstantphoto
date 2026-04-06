@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file, jsonify
+from flask import Flask, request, render_template, send_file
 from PIL import Image, ImageOps
 from io import BytesIO
 from dotenv import load_dotenv
@@ -7,16 +7,20 @@ import requests
 import os
 import random
 
-load_dotenv()  # must be called before any os.getenv() for .env values to be available
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# Keys are read lazily so Railway env vars (set after module load) are always picked up
-_REMOVE_BG_KEY_NAMES = ["REMOVE_BG_KEY_1", "REMOVE_BG_KEY_2", "REMOVE_BG_KEY_3", "REMOVE_BG_KEY_4"]
+REMOVE_BG_KEYS = [
+    os.getenv("REMOVE_BG_KEY_1"),
+    os.getenv("REMOVE_BG_KEY_2"),
+    os.getenv("REMOVE_BG_KEY_3"),
+    os.getenv("REMOVE_BG_KEY_4"),
+]
 
 def get_remove_bg_key():
-    available = [os.getenv(k) for k in _REMOVE_BG_KEY_NAMES if os.getenv(k)]
+    available = [k for k in REMOVE_BG_KEYS if k]
     if not available:
         raise ValueError("No remove.bg API keys configured")
     return random.choice(available)
@@ -32,16 +36,6 @@ def health():
     return "ok", 200
 
 
-@app.route("/aadhaar-scanner")
-def aadhaar_scanner():
-    return render_template("aadhaar-scanner.html")
-
-
-@app.route("/pan-scanner")
-def pan_scanner():
-    return render_template("pan-scanner.html")
-
-
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
     if len(hex_color) != 6:
@@ -49,9 +43,8 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 
-def process_single_image(input_image_bytes, bg_color_rgb=(255, 255, 255)):
-    """Remove background and apply chosen background colour."""
-
+def remove_background_image(input_image_bytes):
+    """Remove background and return RGBA image."""
     response = requests.post(
         "https://api.remove.bg/v1.0/removebg",
         files={"image_file": input_image_bytes},
@@ -72,6 +65,13 @@ def process_single_image(input_image_bytes, bg_color_rgb=(255, 255, 255)):
         raise ValueError(f"bg_removal_failed:unknown:{response.status_code}")
 
     img = Image.open(BytesIO(response.content))
+    return img.convert("RGBA")
+
+
+def process_single_image(input_image_bytes, bg_color_rgb=(255, 255, 255)):
+    """Remove background and apply chosen background colour."""
+
+    img = remove_background_image(input_image_bytes)
 
     if img.mode in ("RGBA", "LA"):
         background = Image.new("RGB", img.size, bg_color_rgb)
@@ -83,20 +83,44 @@ def process_single_image(input_image_bytes, bg_color_rgb=(255, 255, 255)):
     return passport_img
 
 
+@app.route("/preview-photo", methods=["POST"])
+def preview_photo():
+    if "image" not in request.files:
+        return {"error": "no_image_uploaded"}, 400
+
+    file = request.files["image"]
+
+    try:
+        img = remove_background_image(file.read())
+    except ValueError as e:
+        err_str = str(e)
+        if "429" in err_str or "quota" in err_str.lower():
+            return {"error": "quota_exceeded"}, 429
+        return {"error": err_str}, 500
+
+    output = BytesIO()
+    img.save(output, format="PNG")
+    output.seek(0)
+    return send_file(output, mimetype="image/png", as_attachment=False, download_name="preview.png")
+
+
 @app.route("/process", methods=["POST"])
 def process():
     print("==== /process endpoint hit ====")
 
-    passport_width = int(request.form.get("width", 390))
     passport_height = int(request.form.get("height", 480))
     border = int(request.form.get("border", 2))
-    spacing = int(request.form.get("spacing", 15))
     bg_color_hex = request.form.get("bg_color", "#FFFFFF")
     bg_color_rgb = hex_to_rgb(bg_color_hex)
-    margin_x = 20
+    margin_x = 40
     margin_y = 40
     horizontal_gap = 15
+    vertical_gap = 15
     a4_w, a4_h = 2480, 3508
+    photos_per_row = 6
+    available_width = a4_w - (2 * margin_x) - ((photos_per_row - 1) * horizontal_gap)
+    paste_w = available_width // photos_per_row
+    passport_width = max(1, paste_w - (2 * border))
 
     images_data = []
 
@@ -128,14 +152,13 @@ def process():
         except ValueError as e:
             err_str = str(e)
             if "410" in err_str or "face" in err_str.lower():
-                return jsonify({"error": "face_detection_failed"}), 410
+                return {"error": "face_detection_failed"}, 410
             elif "429" in err_str or "quota" in err_str.lower():
-                return jsonify({"error": "quota_exceeded"}), 429
+                return {"error": "quota_exceeded"}, 429
             else:
                 print(err_str)
-                return jsonify({"error": err_str}), 500
+                return {"error": err_str}, 500
 
-    paste_w = passport_width + 2 * border
     paste_h = passport_height + 2 * border
 
     pages = []
@@ -152,7 +175,7 @@ def process():
         for _ in range(copies):
             if x + paste_w > a4_w - margin_x:
                 x = margin_x
-                y += paste_h + spacing
+                y += paste_h + vertical_gap
             if y + paste_h > a4_h - margin_y:
                 new_page()
             current_page.paste(passport_img, (x, y))
@@ -181,41 +204,6 @@ def process():
         as_attachment=True,
         download_name="passport-sheet.pdf",
     )
-
-
-@app.route("/process-single", methods=["POST"])
-def process_single():
-    """Remove background from one photo and return it as a JPEG for direct download."""
-    print("==== /process-single endpoint hit ====")
-
-    passport_width = int(request.form.get("width", 390))
-    passport_height = int(request.form.get("height", 480))
-    border = int(request.form.get("border", 2))
-    bg_color_hex = request.form.get("bg_color", "#FFFFFF")
-    bg_color_rgb = hex_to_rgb(bg_color_hex)
-
-    file = request.files.get("image_0") or request.files.get("image")
-    if not file:
-        return jsonify({"error": "No image uploaded"}), 400
-
-    try:
-        img = process_single_image(file.read(), bg_color_rgb)
-        img = img.resize((passport_width, passport_height), Image.LANCZOS)
-        if border > 0:
-            img = ImageOps.expand(img, border=border, fill="black")
-        output = BytesIO()
-        img.save(output, format="JPEG", quality=95)
-        output.seek(0)
-        return send_file(output, mimetype="image/jpeg", as_attachment=True, download_name="photo.jpg")
-    except ValueError as e:
-        err_str = str(e)
-        if "410" in err_str or "face" in err_str.lower():
-            return jsonify({"error": "face_detection_failed"}), 410
-        elif "429" in err_str or "quota" in err_str.lower():
-            return jsonify({"error": "quota_exceeded"}), 429
-        else:
-            print(err_str)
-            return jsonify({"error": err_str}), 500
 
 
 def crop_card_from_image(img):
@@ -373,7 +361,7 @@ def process_aadhaar():
 
     except Exception as e:
         print(f"Aadhaar error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
 
 
 @app.route("/process-pan", methods=["POST"])
@@ -404,7 +392,7 @@ def process_pan():
 
     except Exception as e:
         print(f"PAN error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
 
 
 if __name__ == "__main__":
