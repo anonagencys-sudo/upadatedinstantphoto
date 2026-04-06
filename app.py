@@ -90,11 +90,11 @@ def process():
     passport_width = int(request.form.get("width", 390))
     passport_height = int(request.form.get("height", 480))
     border = int(request.form.get("border", 2))
-    spacing = int(request.form.get("spacing", 10))
+    spacing = int(request.form.get("spacing", 15))
     bg_color_hex = request.form.get("bg_color", "#FFFFFF")
     bg_color_rgb = hex_to_rgb(bg_color_hex)
-    margin_x = 60
-    margin_y = 60
+    margin_x = 40
+    margin_y = 40
     horizontal_gap = 15
     a4_w, a4_h = 2480, 3508
 
@@ -181,6 +181,41 @@ def process():
         as_attachment=True,
         download_name="passport-sheet.pdf",
     )
+
+
+@app.route("/process-single", methods=["POST"])
+def process_single():
+    """Remove background from one photo and return it as a JPEG for direct download."""
+    print("==== /process-single endpoint hit ====")
+
+    passport_width = int(request.form.get("width", 390))
+    passport_height = int(request.form.get("height", 480))
+    border = int(request.form.get("border", 2))
+    bg_color_hex = request.form.get("bg_color", "#FFFFFF")
+    bg_color_rgb = hex_to_rgb(bg_color_hex)
+
+    file = request.files.get("image_0") or request.files.get("image")
+    if not file:
+        return jsonify({"error": "No image uploaded"}), 400
+
+    try:
+        img = process_single_image(file.read(), bg_color_rgb)
+        img = img.resize((passport_width, passport_height), Image.LANCZOS)
+        if border > 0:
+            img = ImageOps.expand(img, border=border, fill="black")
+        output = BytesIO()
+        img.save(output, format="JPEG", quality=95)
+        output.seek(0)
+        return send_file(output, mimetype="image/jpeg", as_attachment=True, download_name="photo.jpg")
+    except ValueError as e:
+        err_str = str(e)
+        if "410" in err_str or "face" in err_str.lower():
+            return jsonify({"error": "face_detection_failed"}), 410
+        elif "429" in err_str or "quota" in err_str.lower():
+            return jsonify({"error": "quota_exceeded"}), 429
+        else:
+            print(err_str)
+            return jsonify({"error": err_str}), 500
 
 
 def crop_card_from_image(img):
