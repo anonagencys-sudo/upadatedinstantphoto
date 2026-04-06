@@ -556,7 +556,16 @@
     <p id="notification-message"></p>
   </div>
 
-  <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady()"></script>
+ <script>
+  function onOpenCvReady() {
+    cvReady = true;
+    document.getElementById('adCvLoading').classList.add('hidden');
+    document.getElementById('pnCvLoading').classList.add('hidden');
+    scToast('OpenCV ready ✓', 'ok');
+  }
+</script>
+
+<script async src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0/opencv.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
 
   <script>
