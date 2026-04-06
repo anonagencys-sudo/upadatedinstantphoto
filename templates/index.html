@@ -1375,18 +1375,33 @@
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       const photo=photos[0];
       const sourceFile=photo.croppedFile||photo.originalFile;
-      const sourceDataUrl=photo.croppedFile?photo.previewUrl:await fileToDataURL(sourceFile);
-      const img=await adLoadImg(sourceDataUrl);
-      const canvas=document.createElement('canvas');
-      canvas.width=img.naturalWidth||img.width; canvas.height=img.naturalHeight||img.height;
-      const ctx=canvas.getContext('2d');
-      ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      canvas.toBlob(blob=>{
-        if(!blob){showNotification("Could not create JPEG. Try again.");return;}
+      // Send to /process (same as Generate Sheet) so background removal runs via remove.bg
+      const fd=new FormData();
+      fd.append('image_0', sourceFile);
+      fd.append('copies_0', 1);
+      fd.append('width', document.getElementById('width').value);
+      fd.append('height', document.getElementById('height').value);
+      fd.append('spacing', '15');
+      fd.append('border', document.getElementById('border').value);
+      fd.append('bg_color', document.getElementById('bgColorValue').value);
+      showNotification("Removing background...", false);
+      downloadPhotoBtn.disabled=true;
+      try {
+        const r = await fetch((window.BACKEND_URL||'')+'/process-single', {method:'POST', body:fd});
+        if(!r.ok){
+          let errMsg="Could not process photo. Try again.";
+          try{const j=await r.json();if(j&&j.error)errMsg="Error: "+j.error;}catch(e){}
+          showNotification(errMsg); return;
+        }
+        const blob = await r.blob();
         downloadPdfBlob(blob,'photo-1.jpg');
-        showNotification("JPEG downloaded!",false);
-      },'image/jpeg',0.95);
+        showNotification("Photo downloaded!",false);
+      } catch(err){
+        console.error(err);
+        showNotification("Download failed. Try again.");
+      } finally {
+        downloadPhotoBtn.disabled=false;
+      }
     }
 
     function renderPhotoList(){
