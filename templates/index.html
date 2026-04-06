@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="https://res.cloudinary.com/dcajb02df/image/upload/v1753960691/logo_pyncju.png" type="image/png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Photo Print Pro</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    #particles-js { position: fixed; width: 100%; height: 100%; background-color: #1a202c; z-index: -1; }
+    .glow-shadow { box-shadow: 0 0 15px rgba(59,130,246,0.5), 0 0 5px rgba(59,130,246,0.3); }
+    .photo-card { transition: all 0.3s ease; }
+    .photo-card:hover { transform: translateY(-2px); }
+    .cropper-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; }
+    .cropper-modal-box { background: #1f2937; border: 1px solid #374151; border-radius: 1rem; padding: 1.5rem; max-width: 520px; width: 95%; max-height: 90vh; overflow: auto; }
+    .mode-btn { transition: all 0.2s ease; }
+    .mode-btn.active { background: #2563eb; border-color: #3b82f6; color: white; }
+    .mode-btn:not(.active) { background: rgba(55,65,81,0.5); border-color: #4b5563; color: #9ca3af; }
+    .upload-box { border: 2px dashed #4b5563; border-radius: 0.75rem; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .upload-box:hover { border-color: #3b82f6; background: rgba(55,65,81,0.3); }
+    .upload-box.has-file { border-color: #10b981; background: rgba(16,185,129,0.05); border-style: solid; }
+
+    /* ── Scanner shared styles ── */
+    .scanner-wrap {
+      --bg: #0a0a0f; --surface: #111118; --surface2: #1a1a25; --border: #2a2a3a;
+      --text: #e8e8f0; --text-dim: #6b6b80; --green: #00ff88; --yellow: #ffd600;
+      --radius: 12px; --font-mono: 'Space Mono', monospace; --font-display: 'Syne', sans-serif;
+      --accent2: #ff3d6b;
+      font-family: var(--font-display);
+      border-radius: 1rem;
+      overflow: hidden;
+      margin-top: 1rem;
+    }
+    #aadhaarScannerWrap { --accent: #00e5ff; --accent3: #7c3aed; }
+    #panScannerWrap    { --accent: #ff9500; --accent3: #f59e0b; }
+
+    .sc-toast {
+      position: fixed; bottom: 1.5rem; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1a1a25; border: 1px solid #2a2a3a;
+      border-radius: 100px; padding: 0.5rem 1.2rem;
+      font-family: 'Space Mono', monospace; font-size: 0.72rem; color: #e8e8f0;
+      z-index: 9999; transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+      display: flex; align-items: center; gap: 8px; white-space: nowrap;
+    }
+    .sc-toast.show { transform: translateX(-50%) translateY(0); }
+    .sc-toast-dot { width: 6px; height: 6px; border-radius: 50%; background: #00ff88; flex-shrink: 0; }
+    .sc-toast.warn .sc-toast-dot { background: #ffd600; }
+    .sc-toast.err  .sc-toast-dot { background: #ff3d6b; }
+
+    /* ── Magnifier Loupe ── */
+    .sc-loupe {
+      position: fixed;
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      border: 2.5px solid #00e5ff;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 99999;
+      display: none;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.7);
+      background: #000;
+    }
+    .sc-loupe canvas { display: block; }
+    .sc-loupe-cross {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+    .sc-loupe-cross::before,
+    .sc-loupe-cross::after {
+      content: ''; position: absolute; background: rgba(255,255,255,0.55);
+    }
+    .sc-loupe-cross::before { left: 50%; top: 15%; width: 1px; height: 70%; transform: translateX(-50%); }
+    .sc-loupe-cross::after  { top: 50%; left: 15%; height: 1px; width: 70%; transform: translateY(-50%); }
+    .sc-loupe-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.15); pointer-events: none;
+    }
+
+    .sc-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 1rem; }
+    .sc-panel-hdr { padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface2); display: flex; align-items: center; gap: 0.75rem; }
+    .sc-panel-title { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+    .sc-badge { font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; }
+    .sc-badge-right { margin-left: auto; font-family: var(--font-mono); font-size: 0.62rem; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-dim); }
+    .sc-badge-right.ok { background: rgba(0,255,136,0.08); color: var(--green); border-color: rgba(0,255,136,0.2); }
+
+    .sc-canvas-wrap { padding: 1rem; background: #060608; position: relative; min-height: 180px; display: flex; align-items: center; justify-content: center; }
+    canvas.sc-canvas { display: block; max-width: 100%; max-height: 280px; border-radius: 6px; cursor: crosshair; touch-action: none; }
+
+    .sc-upload-ph { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; cursor: pointer; transition: background 0.2s; }
+    .sc-upload-ph input { display: none; }
+    .sc-upload-icon { width: 48px; height: 48px; border-radius: 50%; border: 2px dashed rgba(128,128,255,0.3); display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+    .sc-upload-ph:hover .sc-upload-icon { border-color: var(--accent); box-shadow: 0 0 16px rgba(128,128,255,0.15); }
+    .sc-upload-icon svg { width: 20px; height: 20px; color: var(--accent); }
+    .sc-upload-lbl { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+    .sc-upload-sub { font-family: var(--font-mono); font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.08em; }
+
+    .sc-instructions { padding: 0.55rem 1rem; font-size: 0.72rem; color: var(--text-dim); line-height: 1.5; border-top: 1px solid var(--border); display: none; }
+    .sc-instructions.visible { display: block; }
+    .sc-instructions strong { color: var(--accent); }
+
+    .sc-pts-row { padding: 0.5rem 1rem; border-top: 1px solid var(--border); display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .sc-pt-chip { font-family: var(--font-mono); font-size: 0.58rem; padding: 3px 7px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); transition: all 0.2s; }
+    .sc-pt-chip.set { background: rgba(128,128,255,0.08); border-color: rgba(128,128,255,0.3); color: var(--accent); }
+
+    .sc-ctrl { padding: 0.65rem 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--border); }
+    .sc-btn { padding: 0.5rem 0.85rem; border-radius: 7px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-family: var(--font-display); font-size: 0.76rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+    .sc-btn:hover:not(:disabled) { background: var(--surface); border-color: rgba(255,255,255,0.12); transform: translateY(-1px); }
+    .sc-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .sc-btn.primary { background: linear-gradient(135deg, var(--accent3), #4f46e5); border-color: transparent; color: white; }
+    .sc-btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+    .sc-btn.success { background: linear-gradient(135deg, #065f46, #047857); border-color: rgba(0,255,136,0.2); color: var(--green); }
+    .sc-btn.danger  { background: rgba(255,61,107,0.08); border-color: rgba(255,61,107,0.2); color: var(--accent2); }
+    .sc-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+    .sc-bc { padding: 0.65rem 1rem; border-top: 1px solid var(--border); display: none; flex-direction: column; gap: 0.45rem; }
+    .sc-bc.visible { display: flex; }
+    .sc-bc-row { display: flex; align-items: center; gap: 0.75rem; }
+    .sc-bc-lbl { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; width: 70px; flex-shrink: 0; }
+    .sc-bc-slider { flex: 1; -webkit-appearance: none; appearance: none; height: 3px; border-radius: 3px; background: var(--border); outline: none; cursor: pointer; }
+    .sc-bc-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid #0a0a0f; }
+    .sc-bc-val { font-family: var(--font-mono); font-size: 0.63rem; color: var(--accent); width: 34px; text-align: right; flex-shrink: 0; }
+    .sc-bc-reset { font-family: var(--font-mono); font-size: 0.58rem; color: var(--text-dim); background: none; border: none; cursor: pointer; text-decoration: underline; align-self: flex-end; padding: 0; }
+    .sc-bc-reset:hover { color: var(--accent2); }
+
+    .sc-preview-strip { padding: 0.65rem 1rem; border-top: 1px solid var(--border); display: none; flex-direction: column; gap: 0.45rem; }
+    .sc-preview-strip.visible { display: flex; }
+    .sc-preview-strip img { max-width: 100%; border-radius: 6px; border: 1px solid rgba(128,128,255,0.15); }
+    .sc-preview-lbl { font-family: var(--font-mono); font-size: 0.6rem; color: var(--green); text-transform: uppercase; letter-spacing: 0.1em; }
+
+    .sc-gen-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1rem; }
+    .sc-gen-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--text); }
+    .sc-gen-sub { font-size: 0.78rem; color: var(--text-dim); }
+    .sc-gen-btns { display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center; }
+
+    .sc-pdf-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: none; margin-top: 0; }
+    .sc-pdf-section.visible { display: block; }
+    .sc-pdf-hdr { padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface2); display: flex; align-items: center; gap: 0.75rem; }
+    .sc-pdf-canvas-wrap { padding: 1rem; background: #3a3a3a; display: flex; justify-content: center; }
+    .sc-pdf-canvas-wrap canvas { max-width: 100%; border-radius: 4px; box-shadow: 0 6px 30px rgba(0,0,0,0.6); }
+    .sc-pdf-actions { padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); display: flex; gap: 0.65rem; flex-wrap: wrap; }
+
+    .sc-sides-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    @media (max-width: 600px) { .sc-sides-grid { grid-template-columns: 1fr; } }
+
+    .sc-steps { display: flex; margin-bottom: 1.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .sc-step { flex: 1; padding: 0.85rem; display: flex; align-items: center; gap: 0.6rem; border-right: 1px solid var(--border); transition: background 0.2s; }
+    .sc-step:last-child { border-right: none; }
+    .sc-step.active { background: rgba(128,128,255,0.05); }
+    .sc-step.done   { background: rgba(0,255,136,0.03); }
+    .sc-step-num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); flex-shrink: 0; transition: all 0.3s; }
+    .sc-step.active .sc-step-num { background: var(--accent3); border-color: var(--accent3); color: white; }
+    .sc-step.done   .sc-step-num { background: var(--green); border-color: var(--green); color: #000; }
+    .sc-step-lbl { font-size: 0.75rem; font-weight: 700; color: var(--text); }
+    .sc-step-sub { font-family: var(--font-mono); font-size: 0.57rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .sc-cv-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 2rem; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 1rem; }
+    .sc-cv-loading.hidden { display: none; }
+    .sc-cv-logo { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: #000; animation: logo-pulse 1.5s ease-in-out infinite alternate; }
+    #aadhaarScannerWrap .sc-cv-logo { background: linear-gradient(135deg, #7c3aed, #00e5ff); }
+    #panScannerWrap     .sc-cv-logo { background: linear-gradient(135deg, #f59e0b, #ff9500); }
+    @keyframes logo-pulse { from { box-shadow: 0 0 15px rgba(128,128,255,0.3); } to { box-shadow: 0 0 40px rgba(128,128,255,0.5); } }
+    .sc-spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sc-cv-text { font-size: 0.88rem; font-weight: 600; color: var(--text-dim); }
+  </style>
+</head>
+<body class="bg-gray-900 text-white" oncontextmenu="return false">
+
+  <div id="particles-js"></div>
+
+  <!-- Shared scanner toast -->
+  <div id="scToast" class="sc-toast"><span class="sc-toast-dot"></span><span id="scToastMsg"></span></div>
+
+  <!-- Magnifier Loupe (shared by all canvases) -->
+  <div id="scLoupe" class="sc-loupe">
+    <canvas id="scLoupeCanvas" width="130" height="130"></canvas>
+    <div class="sc-loupe-cross"></div>
+    <div class="sc-loupe-ring"></div>
+  </div>
+
+  <header class="bg-gray-900/50 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-10">
+    <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <span class="text-2xl font-bold text-blue-400">Photo Print Pro</span>
+      </div>
+    </nav>
+  </header>
+
+  <div class="bg-yellow-500 text-black py-2 px-4 font-medium text-center text-sm sm:text-base shadow-md">
+    <marquee behavior="scroll" direction="left" scrollamount="5">
+      🚧 This site is currently in beta. If you encounter any issues, please use the feedback form below to report them. Thank you!
+    </marquee>
+  </div>
+
+  <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="relative bg-gray-800/60 backdrop-blur-md border border-gray-700 rounded-2xl shadow-2xl p-8 max-w-3xl mx-auto">
+
+      <!-- Mode Selector -->
+      <div class="flex gap-3 mb-8 justify-center">
+        <button id="btnPhoto" class="mode-btn active flex-1 sm:flex-none sm:px-8 py-3 rounded-xl border font-semibold text-sm flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Photo
+        </button>
+        <button id="btnAadhaar" class="mode-btn flex-1 sm:flex-none sm:px-8 py-3 rounded-xl border font-semibold text-sm flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/></svg>
+          Aadhaar
+        </button>
+        <button id="btnPan" class="mode-btn flex-1 sm:flex-none sm:px-8 py-3 rounded-xl border font-semibold text-sm flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+          PAN Card
+        </button>
+      </div>
+
+      <!-- ===== PHOTO MODE ===== -->
+      <div id="photoMode">
+        <h2 class="text-2xl font-bold text-center mb-2">Passport Photo</h2>
+        <p class="text-gray-400 text-center text-sm mb-6">Upload photos, crop, pick background colour, generate print-ready sheet.</p>
+
+        <div id="dropZone" class="border-2 border-dashed border-gray-600 hover:border-blue-400 bg-gray-900/50 rounded-xl p-8 cursor-pointer transition-all text-center">
+          <input type="file" id="imageInput" class="hidden" accept="image/*" multiple />
+          <div class="flex flex-col items-center">
+            <svg class="w-14 h-14 text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v5a4 4 0 01-4 4h-2m-6 4h6m-3-4v4"/></svg>
+            <p class="text-lg font-semibold">Drag &amp; Drop or Click to Upload</p>
+            <p class="text-sm text-gray-400 mt-1">Multiple photos supported • JPG, PNG, WEBP</p>
+          </div>
+        </div>
+
+        <div id="photoList" class="mt-6 space-y-3"></div>
+        <div id="addMoreWrapper" class="hidden mt-3 text-center">
+          <button id="addMoreBtn" class="text-blue-400 hover:text-blue-300 text-sm border border-blue-400/40 rounded-lg px-4 py-2 transition-all hover:bg-blue-400/10">+ Add More Photos</button>
+        </div>
+
+        <!-- Background Colour -->
+        <div class="mt-6 bg-gray-900/50 p-5 rounded-xl border border-gray-700">
+          <p class="text-sm font-semibold text-gray-200 mb-3">Background Colour</p>
+          <div class="flex flex-wrap gap-2 items-center" id="bgColorOptions">
+            <button class="bg-color-btn w-9 h-9 rounded-lg border-2 border-transparent hover:border-blue-400 transition-all ring-2 ring-transparent" data-color="#FFFFFF" style="background:#FFFFFF;" title="White"></button>
+            <button class="bg-color-btn w-9 h-9 rounded-lg border-2 border-transparent hover:border-blue-400 transition-all ring-2 ring-transparent" data-color="#C8DEFF" style="background:#C8DEFF;" title="Light Blue"></button>
+            <button class="bg-color-btn w-9 h-9 rounded-lg border-2 border-transparent hover:border-blue-400 transition-all ring-2 ring-transparent" data-color="#A8C8FF" style="background:#A8C8FF;" title="Blue"></button>
+            <button class="bg-color-btn w-9 h-9 rounded-lg border-2 border-transparent hover:border-blue-400 transition-all ring-2 ring-transparent" data-color="#E8F5E9" style="background:#E8F5E9;" title="Light Green"></button>
+            <button class="bg-color-btn w-9 h-9 rounded-lg border-2 border-transparent hover:border-blue-400 transition-all ring-2 ring-transparent" data-color="#F5F5DC" style="background:#F5F5DC;" title="Beige"></button>
+            <button class="bg-color-btn w-9 h-9 rounded-lg border-2 border-transparent hover:border-blue-400 transition-all ring-2 ring-transparent" data-color="#D1D5DB" style="background:#D1D5DB;" title="Grey"></button>
+            <div class="flex items-center gap-2 ml-1">
+              <label class="text-xs text-gray-400">Custom:</label>
+              <input type="color" id="customBgColor" value="#FFFFFF" class="w-9 h-9 rounded-lg cursor-pointer border-2 border-gray-600 bg-transparent p-0.5"/>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+              <span class="text-xs text-gray-400">Selected:</span>
+              <div id="selectedColorPreview" class="w-9 h-9 rounded-lg border border-gray-500" style="background:#FFFFFF;"></div>
+            </div>
+          </div>
+          <input type="hidden" id="bgColorValue" value="#FFFFFF" />
+        </div>
+
+        <!-- Advanced Options -->
+        <div class="mt-6 space-y-4">
+          <div class="text-center">
+            <button id="toggleAdvanced" class="text-blue-400 hover:text-blue-300 transition-all text-sm">Advanced Options</button>
+          </div>
+          <div id="advancedOptions" class="hidden bg-gray-900/50 p-6 rounded-lg border border-gray-700">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+              <div><label class="block mb-1 text-sm font-medium">Width (px)</label><input type="number" id="width" value="390" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
+              <div><label class="block mb-1 text-sm font-medium">Height (px)</label><input type="number" id="height" value="480" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
+              <div><label class="block mb-1 text-sm font-medium">Spacing (px)</label><input type="number" id="spacing" value="10" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
+              <div><label class="block mb-1 text-sm font-medium">Border (px)</label><input type="number" id="border" value="2" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+            <button id="generateBtn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105 glow-shadow disabled:opacity-50 disabled:cursor-not-allowed">Generate Sheet</button>
+            <button id="downloadPhotoBtn" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105">Download Photo</button>
+            <button id="downloadBtn" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105 hidden">Download PDF</button>
+          </div>
+          <div id="loading" class="hidden text-blue-400 font-semibold text-center">Processing images... please wait</div>
+        </div>
+        <embed id="pdfPreview" type="application/pdf" class="w-full h-[500px] mt-6 hidden rounded-lg"/>
+      </div>
+
+      <!-- ===== AADHAAR MODE ===== -->
+      <div id="aadhaarMode" class="hidden">
+        <h2 class="text-2xl font-bold text-center mb-1">Aadhaar Card Scanner</h2>
+        <p class="text-gray-400 text-center text-sm mb-5">Upload front &amp; back, manually crop with 4-point selector, adjust brightness/contrast, generate PDF.</p>
+
+        <div id="aadhaarScannerWrap" class="scanner-wrap">
+          <div id="adCvLoading" class="sc-cv-loading">
+            <div class="sc-cv-logo">CV</div>
+            <div class="sc-cv-text">Loading OpenCV.js…</div>
+            <div class="sc-spinner"></div>
+          </div>
+
+          <div class="sc-steps">
+            <div class="sc-step active" id="adStep1">
+              <div class="sc-step-num">1</div>
+              <div><div class="sc-step-lbl">Front Side</div><div class="sc-step-sub">Upload &amp; crop</div></div>
+            </div>
+            <div class="sc-step" id="adStep2">
+              <div class="sc-step-num">2</div>
+              <div><div class="sc-step-lbl">Back Side</div><div class="sc-step-sub">Upload &amp; crop</div></div>
+            </div>
+            <div class="sc-step" id="adStep3">
+              <div class="sc-step-num">3</div>
+              <div><div class="sc-step-lbl">Generate PDF</div><div class="sc-step-sub">Download sheet</div></div>
+            </div>
+          </div>
+
+          <div class="sc-sides-grid">
+            <!-- FRONT -->
+            <div class="sc-panel">
+              <div class="sc-panel-hdr">
+                <span class="sc-badge" style="background:rgba(0,229,255,0.12);color:#00e5ff;border:1px solid rgba(0,229,255,0.25);">FRONT</span>
+                <span class="sc-panel-title">Aadhaar Front Side</span>
+                <span class="sc-badge-right" id="adFrontBadge">PENDING</span>
+              </div>
+              <div class="sc-canvas-wrap" id="adFrontWrap">
+                <label class="sc-upload-ph" id="adFrontLabel">
+                  <input type="file" id="adFrontFile" accept="image/*"/>
+                  <div class="sc-upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+                  <div class="sc-upload-lbl">Upload Front Photo</div>
+                  <div class="sc-upload-sub">JPG · PNG · WEBP</div>
+                </label>
+                <canvas id="adFrontCanvas" class="sc-canvas" style="display:none;"></canvas>
+              </div>
+              <div class="sc-instructions" id="adFrontInstr"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. Loupe zooms to help precision.</div>
+              <div class="sc-pts-row" id="adFrontPts">
+                <span class="sc-pt-chip" id="adfpt0">TL —</span><span class="sc-pt-chip" id="adfpt1">TR —</span><span class="sc-pt-chip" id="adfpt2">BR —</span><span class="sc-pt-chip" id="adfpt3">BL —</span>
+              </div>
+              <div class="sc-ctrl">
+                <button class="sc-btn danger" id="adFrontReset" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Reset</button>
+                <button class="sc-btn" id="adFrontSkip" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Use Full</button>
+                <button class="sc-btn" id="adFrontRotate" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6.34 5.34L4 10"/><path d="M4 15a8 8 0 0 0 13.66 3.66L20 14"/></svg>Rotate</button>
+                <button class="sc-btn success" id="adFrontCrop" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Crop</button>
+              </div>
+              <div class="sc-bc" id="adFrontBc">
+                <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="adFrontBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="adFrontBrightVal">100</span></div>
+                <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="adFrontContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="adFrontContrVal">100</span></div>
+                <button class="sc-bc-reset" id="adFrontBcReset">reset</button>
+              </div>
+              <div class="sc-preview-strip" id="adFrontStrip">
+                <div class="sc-preview-lbl" id="adFrontStripLbl">✓ Front Cropped</div>
+                <img id="adFrontImg" src="" alt=""/>
+              </div>
+            </div>
+
+            <!-- BACK -->
+            <div class="sc-panel">
+              <div class="sc-panel-hdr">
+                <span class="sc-badge" style="background:rgba(124,58,237,0.12);color:#a78bfa;border:1px solid rgba(124,58,237,0.25);">BACK</span>
+                <span class="sc-panel-title">Aadhaar Back Side</span>
+                <span class="sc-badge-right" id="adBackBadge">PENDING</span>
+              </div>
+              <div class="sc-canvas-wrap" id="adBackWrap">
+                <label class="sc-upload-ph" id="adBackLabel">
+                  <input type="file" id="adBackFile" accept="image/*"/>
+                  <div class="sc-upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+                  <div class="sc-upload-lbl">Upload Back Photo</div>
+                  <div class="sc-upload-sub">JPG · PNG · WEBP</div>
+                </label>
+                <canvas id="adBackCanvas" class="sc-canvas" style="display:none;"></canvas>
+              </div>
+              <div class="sc-instructions" id="adBackInstr"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. Loupe zooms to help precision.</div>
+              <div class="sc-pts-row" id="adBackPts">
+                <span class="sc-pt-chip" id="adbpt0">TL —</span><span class="sc-pt-chip" id="adbpt1">TR —</span><span class="sc-pt-chip" id="adbpt2">BR —</span><span class="sc-pt-chip" id="adbpt3">BL —</span>
+              </div>
+              <div class="sc-ctrl">
+                <button class="sc-btn danger" id="adBackReset" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Reset</button>
+                <button class="sc-btn" id="adBackSkip" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Use Full</button>
+                <button class="sc-btn" id="adBackRotate" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6.34 5.34L4 10"/><path d="M4 15a8 8 0 0 0 13.66 3.66L20 14"/></svg>Rotate</button>
+                <button class="sc-btn success" id="adBackCrop" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Crop</button>
+              </div>
+              <div class="sc-bc" id="adBackBc">
+                <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="adBackBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="adBackBrightVal">100</span></div>
+                <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="adBackContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="adBackContrVal">100</span></div>
+                <button class="sc-bc-reset" id="adBackBcReset">reset</button>
+              </div>
+              <div class="sc-preview-strip" id="adBackStrip">
+                <div class="sc-preview-lbl" id="adBackStripLbl">✓ Back Cropped</div>
+                <img id="adBackImg" src="" alt=""/>
+              </div>
+            </div>
+          </div>
+
+          <!-- Generate section -->
+          <div class="sc-gen-section">
+            <div>
+              <div class="sc-gen-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:#7c3aed"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Generate PDF Sheet
+              </div>
+              <div class="sc-gen-sub">Both sides laid out photocopy-style on A4.</div>
+            </div>
+            <div class="sc-gen-btns">
+              <button class="sc-btn primary" id="adGenerate" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Generate PDF
+              </button>
+              <span id="adReadyStatus" style="font-family:'Space Mono',monospace;font-size:0.68rem;color:#6b6b80;">Upload &amp; crop both sides</span>
+            </div>
+          </div>
+
+          <!-- PDF preview -->
+          <div class="sc-pdf-section" id="adPdfSection">
+            <div class="sc-pdf-hdr">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:#00ff88"><polyline points="20 6 9 17 4 12"/></svg>
+              <span class="sc-panel-title">PDF Preview</span>
+              <span class="sc-badge-right ok" style="margin-left:auto;">READY</span>
+            </div>
+            <div class="sc-pdf-canvas-wrap"><canvas id="adPdfCanvas"></canvas></div>
+            <div class="sc-pdf-actions">
+              <button class="sc-btn success" id="adDownload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PDF</button>
+              <button class="sc-btn" id="adRegenerate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Regenerate</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PAN MODE ===== -->
+      <div id="panMode" class="hidden">
+        <h2 class="text-2xl font-bold text-center mb-1">PAN Card Scanner</h2>
+        <p class="text-gray-400 text-center text-sm mb-5">Upload PAN card, manually crop with 4-point selector, adjust brightness/contrast, generate PDF.</p>
+
+        <div id="panScannerWrap" class="scanner-wrap">
+          <div id="pnCvLoading" class="sc-cv-loading">
+            <div class="sc-cv-logo">PAN</div>
+            <div class="sc-cv-text">Loading OpenCV.js…</div>
+            <div class="sc-spinner"></div>
+          </div>
+
+          <div class="sc-steps">
+            <div class="sc-step active" id="pnStep1">
+              <div class="sc-step-num">1</div>
+              <div><div class="sc-step-lbl">Upload Card</div><div class="sc-step-sub">Upload &amp; crop</div></div>
+            </div>
+            <div class="sc-step" id="pnStep2">
+              <div class="sc-step-num">2</div>
+              <div><div class="sc-step-lbl">Adjust</div><div class="sc-step-sub">Brightness &amp; contrast</div></div>
+            </div>
+            <div class="sc-step" id="pnStep3">
+              <div class="sc-step-num">3</div>
+              <div><div class="sc-step-lbl">Generate PDF</div><div class="sc-step-sub">Download sheet</div></div>
+            </div>
+          </div>
+
+          <div class="sc-panel">
+            <div class="sc-panel-hdr">
+              <span class="sc-badge" style="background:rgba(255,149,0,0.12);color:#ff9500;border:1px solid rgba(255,149,0,0.25);">PAN</span>
+              <span class="sc-panel-title">PAN Card Photo</span>
+              <span class="sc-badge-right" id="pnBadge">PENDING</span>
+            </div>
+            <div class="sc-canvas-wrap" id="pnCanvasWrap">
+              <label class="sc-upload-ph" id="pnUploadLabel">
+                <input type="file" id="pnFileInput" accept="image/*"/>
+                <div class="sc-upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+                <div class="sc-upload-lbl">Upload PAN Card Photo</div>
+                <div class="sc-upload-sub">JPG · PNG · WEBP</div>
+              </label>
+              <canvas id="pnCanvas" class="sc-canvas" style="display:none;"></canvas>
+            </div>
+            <div class="sc-instructions" id="pnInstructions"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. Loupe zooms to help precision.</div>
+            <div class="sc-pts-row">
+              <span class="sc-pt-chip" id="pnpt0">TL —</span><span class="sc-pt-chip" id="pnpt1">TR —</span><span class="sc-pt-chip" id="pnpt2">BR —</span><span class="sc-pt-chip" id="pnpt3">BL —</span>
+            </div>
+            <div class="sc-ctrl">
+              <button class="sc-btn danger" id="pnReset" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Reset</button>
+              <button class="sc-btn" id="pnSkip" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Use Full Image</button>
+              <button class="sc-btn" id="pnRotate" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6.34 5.34L4 10"/><path d="M4 15a8 8 0 0 0 13.66 3.66L20 14"/></svg>Rotate</button>
+              <button class="sc-btn success" id="pnCrop" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Crop</button>
+            </div>
+            <div class="sc-bc" id="pnBc">
+              <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="pnBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="pnBrightVal">100</span></div>
+              <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="pnContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="pnContrVal">100</span></div>
+              <button class="sc-bc-reset" id="pnBcReset">reset</button>
+            </div>
+            <div class="sc-preview-strip" id="pnStrip">
+              <div class="sc-preview-lbl" id="pnStripLbl">✓ PAN Card Cropped</div>
+              <img id="pnPreviewImg" src="" alt=""/>
+            </div>
+          </div>
+
+          <div class="sc-gen-section">
+            <div>
+              <div class="sc-gen-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:#ff9500"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Generate PDF Sheet
+              </div>
+              <div class="sc-gen-sub">PAN card printed photocopy-style on A4 (multiple copies per page).</div>
+            </div>
+            <div class="sc-gen-btns">
+              <button class="sc-btn primary" id="pnGenerate" disabled style="background:linear-gradient(135deg,#92400e,#d97706);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Generate PDF
+              </button>
+              <span id="pnReadyStatus" style="font-family:'Space Mono',monospace;font-size:0.68rem;color:#6b6b80;">Upload &amp; crop card to continue</span>
+            </div>
+          </div>
+
+          <div class="sc-pdf-section" id="pnPdfSection">
+            <div class="sc-pdf-hdr">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:#00ff88"><polyline points="20 6 9 17 4 12"/></svg>
+              <span class="sc-panel-title">PDF Preview</span>
+              <span class="sc-badge-right ok" style="margin-left:auto;">READY</span>
+            </div>
+            <div class="sc-pdf-canvas-wrap"><canvas id="pnPdfCanvas"></canvas></div>
+            <div class="sc-pdf-actions">
+              <button class="sc-btn success" id="pnDownload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PDF</button>
+              <button class="sc-btn" id="pnRegenerate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Regenerate</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Cropper Modal -->
+  <div id="cropperModal" class="cropper-modal-overlay hidden">
+    <div class="cropper-modal-box">
+      <h3 class="text-lg font-bold mb-3">Crop Photo</h3>
+      <div class="max-h-[400px] overflow-hidden rounded-lg">
+        <img id="cropModalImage" src="" style="max-width:100%; display:block;"/>
+      </div>
+      <div class="flex gap-3 mt-4 justify-end">
+        <button id="cancelCropBtn" class="bg-gray-600 hover:bg-gray-500 text-white py-2 px-5 rounded-lg transition-all">Cancel</button>
+        <button id="confirmCropBtn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-5 rounded-lg transition-all">Crop &amp; Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback Button -->
+  <button id="feedbackBtn" class="fixed bottom-5 right-5 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-5 rounded-full shadow-lg transition-all transform hover:rotate-12">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+  </button>
+
+  <!-- Feedback Modal -->
+  <div id="feedbackModal" class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-20 hidden">
+    <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-8 max-w-md w-full relative">
+      <button id="closeModal" class="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
+      <h2 class="text-2xl font-bold mb-4">Feedback / Bug Report</h2>
+      <form id="feedbackForm" class="space-y-4">
+        <input type="text" name="contact" placeholder="Your Contact (Email or Phone)" required class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        <textarea name="message" placeholder="Describe your issue or suggestion..." required rows="4" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-all">Submit</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div id="notification" class="fixed bottom-1/2 right-5 text-white py-2 px-4 rounded-lg shadow-lg transform translate-x-[120%] transition-transform duration-500 z-50">
+    <p id="notification-message"></p>
+  </div>
+
+  <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady()"></script>
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+
+  <script>
+    emailjs.init("XJqjmVHK4ISEX0Zam");
+
+    particlesJS('particles-js', {
+      particles: {
+        number: { value: 80, density: { enable: true, value_area: 800 } },
+        color: { value: "#4a5568" }, shape: { type: "circle" },
+        opacity: { value: 0.5, random: true }, size: { value: 3, random: true },
+        line_linked: { enable: true, distance: 150, color: "#718096", opacity: 0.4, width: 1 },
+        move: { enable: true, speed: 2, direction: "none", random: false, straight: false, out_mode: "out" }
+      },
+      interactivity: {
+        detect_on: "canvas",
+        events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" } },
+        modes: { repulse: { distance: 100 }, push: { particles_nb: 4 } }
+      },
+      retina_detect: true
+    });
+
+    // ─── Notifications ───────────────────────────────────────────────
+    const notification = document.getElementById('notification');
+    const notifMsg = document.getElementById('notification-message');
+    function showNotification(msg, isError = true) {
+      notifMsg.textContent = msg;
+      notification.classList.remove('bg-red-500', 'bg-green-500');
+      notification.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+      notification.classList.remove('translate-x-[120%]');
+      notification.classList.add('translate-x-0');
+      setTimeout(() => { notification.classList.remove('translate-x-0'); notification.classList.add('translate-x-[120%]'); }, 3000);
+    }
+
+    // ─── Mode Switcher ───────────────────────────────────────────────
+    function switchMode(mode) {
+      ['photo','aadhaar','pan'].forEach(m => {
+        document.getElementById(m + 'Mode').classList.toggle('hidden', m !== mode);
+        document.getElementById('btn' + m.charAt(0).toUpperCase() + m.slice(1)).classList.toggle('active', m === mode);
+      });
+    }
+    document.getElementById('btnPhoto').addEventListener('click', () => switchMode('photo'));
+    document.getElementById('btnAadhaar').addEventListener('click', () => switchMode('aadhaar'));
+    document.getElementById('btnPan').addEventListener('click', () => switchMode('pan'));
+
+    // ─── Shared scanner toast ────────────────────────────────────────
+    let scToastTimer;
+    function scToast(msg, type = 'ok') {
+      const el = document.getElementById('scToast');
+      el.className = 'sc-toast show ' + type;
+      document.getElementById('scToastMsg').textContent = msg;
+      clearTimeout(scToastTimer);
+      scToastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+    }
+
+    // ─── Magnifier Loupe ─────────────────────────────────────────────
+    const scLoupeEl   = document.getElementById('scLoupe');
+    const scLoupeCtx  = document.getElementById('scLoupeCanvas').getContext('2d');
+    const LOUPE_SIZE   = 130;
+    const LOUPE_ZOOM   = 3.5;
+    const LOUPE_OFF_X  = 88;
+    const LOUPE_OFF_Y  = -70;
+
+    function showLoupe(canvasEl, sourceImg, canvasX, canvasY, clientX, clientY, accentColor) {
+      scLoupeEl.style.borderColor = accentColor || '#00e5ff';
+      scLoupeEl.style.display = 'block';
+
+      // Position: prefer top-right of cursor, flip if near edges
+      let lx = clientX + LOUPE_OFF_X;
+      let ly = clientY + LOUPE_OFF_Y;
+      if (lx + LOUPE_SIZE > window.innerWidth - 12)  lx = clientX - LOUPE_SIZE - LOUPE_OFF_X + 20;
+      if (ly < 12) ly = clientY + 24;
+      if (ly + LOUPE_SIZE > window.innerHeight - 12)  ly = clientY - LOUPE_SIZE - 12;
+      scLoupeEl.style.left = lx + 'px';
+      scLoupeEl.style.top  = ly + 'px';
+
+      // Map canvas pixel → source image pixel
+      const scaleX = (sourceImg.naturalWidth  || canvasEl.width)  / canvasEl.width;
+      const scaleY = (sourceImg.naturalHeight || canvasEl.height) / canvasEl.height;
+      const srcX   = canvasX * scaleX;
+      const srcY   = canvasY * scaleY;
+      const half   = LOUPE_SIZE / 2;
+      const srcR   = half / LOUPE_ZOOM;
+
+      scLoupeCtx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
+      // Dark fallback background
+      scLoupeCtx.fillStyle = '#111';
+      scLoupeCtx.fillRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
+      // Draw zoomed patch
+      try {
+        scLoupeCtx.drawImage(
+          sourceImg,
+          srcX - srcR, srcY - srcR, srcR * 2, srcR * 2,
+          0, 0, LOUPE_SIZE, LOUPE_SIZE
+        );
+      } catch(e) { /* tainted canvas or out-of-bounds — ignore */ }
+    }
+
+    function hideLoupe() {
+      scLoupeEl.style.display = 'none';
+    }
+
+    // ─── OpenCV ready ────────────────────────────────────────────────
+    let cvReady = false;
+    function onOpenCvReady() {
+      cvReady = true;
+      document.getElementById('adCvLoading').classList.add('hidden');
+      document.getElementById('pnCvLoading').classList.add('hidden');
+      scToast('OpenCV ready ✓', 'ok');
+    }
+    window.onOpenCvReady = onOpenCvReady;
+
+    // ════════════════════════════════════════════════════════════════
+    // AADHAAR SCANNER
+    // ════════════════════════════════════════════════════════════════
+    const AD_COLORS = ['#00e5ff','#ff3d6b','#ffd600','#00ff88'];
+    const PT_LABELS = ['TL','TR','BR','BL'];
+    const DRAG_R = 22;
+
+    function adMakeSide(prefix, canvasId, wrapId, labelId, fileId, instrId, ptsId, chipPfx, badgeId, resetId, skipId, rotateId, cropId, bcId, bSlId, bValId, cSlId, cValId, bcResetId, stripId, stripLblId, imgId) {
+      return {
+        prefix, canvasId, wrapId, labelId, fileId, instrId, ptsId, chipPfx, badgeId,
+        resetId, skipId, rotateId, cropId, bcId, bSlId, bValId, cSlId, cValId, bcResetId, stripId, stripLblId, imgId,
+        originalImage: null, originalW: 0, originalH: 0, scale: 1,
+        points: [], draggingIdx: -1, croppedDataURL: null, _rawCanvas: null,
+        brightness: 100, contrast: 100,
+        get canvas() { return document.getElementById(canvasId); },
+        get ctx()    { return this.canvas.getContext('2d'); }
+      };
+    }
+
+    const adFront = adMakeSide('adFront','adFrontCanvas','adFrontWrap','adFrontLabel','adFrontFile','adFrontInstr','adFrontPts','adf','adFrontBadge','adFrontReset','adFrontSkip','adFrontRotate','adFrontCrop','adFrontBc','adFrontBright','adFrontBrightVal','adFrontContr','adFrontContrVal','adFrontBcReset','adFrontStrip','adFrontStripLbl','adFrontImg');
+    const adBack  = adMakeSide('adBack', 'adBackCanvas', 'adBackWrap', 'adBackLabel', 'adBackFile', 'adBackInstr', 'adBackPts', 'adb','adBackBadge', 'adBackReset', 'adBackSkip', 'adBackRotate', 'adBackCrop', 'adBackBc', 'adBackBright', 'adBackBrightVal', 'adBackContr', 'adBackContrVal', 'adBackBcReset', 'adBackStrip', 'adBackStripLbl', 'adBackImg');
+
+    let adPdfBlob = null;
+
+    function rotateCanvasClockwise(source) {
+      const rotated = document.createElement('canvas');
+      rotated.width = source.height; rotated.height = source.width;
+      const ctx = rotated.getContext('2d');
+      ctx.translate(rotated.width, 0); ctx.rotate(Math.PI / 2);
+      ctx.drawImage(source, 0, 0);
+      return rotated;
+    }
+
+    function canvasToImage(canvas) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to rotate image'));
+        img.src = canvas.toDataURL('image/png');
+      });
+    }
+
+    function adRenderImg(side) {
+      const wrap = document.getElementById(side.wrapId);
+      const maxW = wrap.clientWidth - 32;
+      const scale = Math.min(maxW / side.originalW, 280 / side.originalH, 1);
+      side.scale = scale;
+      side.canvas.width  = Math.round(side.originalW * scale);
+      side.canvas.height = Math.round(side.originalH * scale);
+      side.ctx.drawImage(side.originalImage, 0, 0, side.canvas.width, side.canvas.height);
+    }
+
+    function adRedraw(side) {
+      side.ctx.clearRect(0, 0, side.canvas.width, side.canvas.height);
+      side.ctx.drawImage(side.originalImage, 0, 0, side.canvas.width, side.canvas.height);
+      adDrawPoints(side);
+    }
+
+    function adDrawPoints(side) {
+      const pts = side.points; if (!pts.length) return;
+      const ctx = side.ctx;
+      if (pts.length >= 2) {
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        if (pts.length === 4) ctx.closePath();
+        ctx.strokeStyle = 'rgba(0,229,255,0.7)'; ctx.lineWidth = 1.5;
+        ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]);
+        if (pts.length === 4) { ctx.fillStyle = 'rgba(0,229,255,0.06)'; ctx.fill(); }
+      }
+      pts.forEach((p, i) => {
+        ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI*2); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI*2); ctx.strokeStyle = AD_COLORS[i]; ctx.lineWidth = 2; ctx.stroke();
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI*2); ctx.fillStyle = AD_COLORS[i]; ctx.fill();
+        ctx.font = 'bold 9px Space Mono, monospace'; ctx.fillStyle = AD_COLORS[i]; ctx.textAlign = 'center';
+        ctx.fillText(PT_LABELS[i], p.x, p.y - 16);
+      });
+    }
+
+    function adUpdateChips(side) {
+      const p = side.chipPfx;
+      for (let i = 0; i < 4; i++) {
+        const chip = document.getElementById(p + 'pt' + i);
+        if (side.points[i]) {
+          chip.textContent = PT_LABELS[i] + ' ' + Math.round(side.points[i].x/side.scale) + ',' + Math.round(side.points[i].y/side.scale);
+          chip.classList.add('set');
+        } else {
+          chip.textContent = PT_LABELS[i] + ' —'; chip.classList.remove('set');
+        }
+      }
+      document.getElementById(side.cropId).disabled = side.points.length < 4;
+    }
+
+    function adGetPos(e, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+      return e.touches
+        ? { x: (e.touches[0].clientX - rect.left)*sx, y: (e.touches[0].clientY - rect.top)*sy }
+        : { x: (e.clientX - rect.left)*sx,            y: (e.clientY - rect.top)*sy };
+    }
+
+    function adFindNearest(pts, pos) {
+      let minD = Infinity, idx = -1;
+      pts.forEach((p,i) => { const d = Math.hypot(p.x-pos.x, p.y-pos.y); if (d < DRAG_R && d < minD) { minD=d; idx=i; } });
+      return idx;
+    }
+
+    // ─── Aadhaar canvas setup WITH loupe ────────────────────────────
+    function adSetupCanvas(side) {
+      const c = side.canvas;
+      const accent = side.prefix === 'adFront' ? '#00e5ff' : '#a78bfa';
+
+      const getClientPos = e => e.touches
+        ? { cx: e.touches[0].clientX, cy: e.touches[0].clientY }
+        : { cx: e.clientX,            cy: e.clientY };
+
+      const down = e => {
+        if (!side.originalImage) return;
+        e.preventDefault();
+        const pos = adGetPos(e, c);
+        const { cx, cy } = getClientPos(e);
+        const near = adFindNearest(side.points, pos);
+        if (near !== -1) {
+          side.draggingIdx = near;
+          showLoupe(c, side.originalImage, pos.x, pos.y, cx, cy, accent);
+          return;
+        }
+        if (side.points.length < 4) {
+          side.points.push(pos);
+          adRedraw(side);
+          adUpdateChips(side);
+          showLoupe(c, side.originalImage, pos.x, pos.y, cx, cy, accent);
+          if (side.points.length === 4) scToast('4 corners set — press Crop', 'ok');
+        }
+      };
+
+      const move = e => {
+        if (!side.originalImage) return;
+        const pos = adGetPos(e, c);
+        const { cx, cy } = getClientPos(e);
+        const near = adFindNearest(side.points, pos);
+        if (side.draggingIdx !== -1) {
+          e.preventDefault();
+          side.points[side.draggingIdx] = pos;
+          adRedraw(side);
+          adUpdateChips(side);
+          showLoupe(c, side.originalImage, pos.x, pos.y, cx, cy, accent);
+        } else if (near !== -1 || side.points.length < 4) {
+          showLoupe(c, side.originalImage, pos.x, pos.y, cx, cy, accent);
+        } else {
+          hideLoupe();
+        }
+      };
+
+      const up = () => { side.draggingIdx = -1; hideLoupe(); adUpdateChips(side); };
+
+      c.addEventListener('mousedown',  down);
+      c.addEventListener('mousemove',  move);
+      c.addEventListener('mouseup',    up);
+      c.addEventListener('mouseleave', hideLoupe);
+      c.addEventListener('touchstart', down,  { passive: false });
+      c.addEventListener('touchmove',  move,  { passive: false });
+      c.addEventListener('touchend',   up);
+    }
+    adSetupCanvas(adFront);
+    adSetupCanvas(adBack);
+
+    function adSetupFile(side) {
+      document.getElementById(side.fileId).addEventListener('change', e => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const img = new Image();
+          img.onload = () => {
+            side.originalImage = img; side.originalW = img.naturalWidth; side.originalH = img.naturalHeight;
+            side.points = []; side.croppedDataURL = null; side._rawCanvas = null;
+            side.brightness = 100; side.contrast = 100;
+            adRenderImg(side);
+            document.getElementById(side.labelId).style.display = 'none';
+            side.canvas.style.display = 'block';
+            document.getElementById(side.instrId).classList.add('visible');
+            document.getElementById(side.resetId).disabled = false;
+            document.getElementById(side.skipId).disabled = false;
+            document.getElementById(side.rotateId).disabled = false;
+            document.getElementById(side.cropId).disabled = true;
+            document.getElementById(side.stripId).classList.remove('visible');
+            document.getElementById(side.bcId).classList.remove('visible');
+            document.getElementById(side.bSlId).value = 100; document.getElementById(side.cSlId).value = 100;
+            document.getElementById(side.bValId).textContent = 100; document.getElementById(side.cValId).textContent = 100;
+            adUpdateBadge(side, 'UPLOADING', ''); adUpdateChips(side); adUpdateGenerateBtn(); adUpdateSteps();
+            scToast('Image loaded — click 4 corners', 'ok');
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    adSetupFile(adFront); adSetupFile(adBack);
+
+    function adResetSide(side) {
+      side.points = []; side.croppedDataURL = null; side._rawCanvas = null;
+      side.brightness = 100; side.contrast = 100;
+      if (side.originalImage) adRedraw(side);
+      adUpdateChips(side);
+      document.getElementById(side.skipId).disabled = !side.originalImage;
+      document.getElementById(side.rotateId).disabled = !side.originalImage;
+      document.getElementById(side.stripId).classList.remove('visible');
+      document.getElementById(side.bcId).classList.remove('visible');
+      document.getElementById(side.bSlId).value = 100; document.getElementById(side.cSlId).value = 100;
+      document.getElementById(side.bValId).textContent = 100; document.getElementById(side.cValId).textContent = 100;
+      adUpdateBadge(side, 'UPLOADING', ''); adUpdateGenerateBtn(); adUpdateSteps();
+      scToast('Reset', 'warn');
+    }
+    document.getElementById('adFrontReset').addEventListener('click', () => adResetSide(adFront));
+    document.getElementById('adBackReset').addEventListener('click',  () => adResetSide(adBack));
+
+    async function adRotateSide(side) {
+      if (!side.originalImage) { scToast('Upload first','warn'); return; }
+      if (side._rawCanvas) {
+        side._rawCanvas = rotateCanvasClockwise(side._rawCanvas);
+        const label = side.prefix === 'adFront' ? 'Front Rotated' : 'Back Rotated';
+        adFinaliseCrop(side, side._rawCanvas, label);
+      } else {
+        const sourceCanvas = document.createElement('canvas');
+        sourceCanvas.width = side.originalW; sourceCanvas.height = side.originalH;
+        sourceCanvas.getContext('2d').drawImage(side.originalImage, 0, 0);
+        const rotatedCanvas = rotateCanvasClockwise(sourceCanvas);
+        side.originalImage = await canvasToImage(rotatedCanvas);
+        side.originalW = rotatedCanvas.width; side.originalH = rotatedCanvas.height;
+        side.points = [];
+        adRenderImg(side); adUpdateChips(side);
+        document.getElementById(side.cropId).disabled = true;
+      }
+      adUpdateGenerateBtn(); adUpdateSteps();
+      scToast('Rotated 90°','ok');
+    }
+    document.getElementById('adFrontRotate').addEventListener('click', () => { adRotateSide(adFront).catch(err => scToast(err.message,'err')); });
+    document.getElementById('adBackRotate').addEventListener('click',  () => { adRotateSide(adBack).catch(err => scToast(err.message,'err')); });
+
+    function adBakeAdjusted(side) {
+      const src = side._rawCanvas;
+      const tmp = document.createElement('canvas'); tmp.width = src.width; tmp.height = src.height;
+      const ctx = tmp.getContext('2d');
+      ctx.filter = `brightness(${side.brightness}%) contrast(${side.contrast}%)`; ctx.drawImage(src,0,0); ctx.filter='none';
+      side.croppedDataURL = tmp.toDataURL('image/jpeg', 0.97); adUpdateGenerateBtn();
+    }
+
+    function adFinaliseCrop(side, rawCanvas, label) {
+      side._rawCanvas = rawCanvas;
+      side.croppedDataURL = rawCanvas.toDataURL('image/jpeg', 0.97);
+      const img = document.getElementById(side.imgId);
+      img.src = side.croppedDataURL;
+      img.style.filter = `brightness(${side.brightness}%) contrast(${side.contrast}%)`;
+      adBakeAdjusted(side);
+      document.getElementById(side.stripLblId).textContent = '✓ ' + label;
+      document.getElementById(side.stripId).classList.add('visible');
+      document.getElementById(side.bcId).classList.add('visible');
+      adUpdateBadge(side, 'READY', 'ok'); adUpdateGenerateBtn(); adUpdateSteps();
+      scToast((side.prefix === 'adFront' ? 'Front' : 'Back') + ' ready ✓', 'ok');
+    }
+
+    function adCropSide(side) {
+      if (side.points.length < 4) { scToast('Need 4 corners','warn'); return; }
+      if (!cvReady) { scToast('OpenCV not ready','err'); return; }
+      try {
+        const pts = side.points.map(p => ({ x: p.x/side.scale, y: p.y/side.scale }));
+        const [tl,tr,br,bl] = pts;
+        const outW = Math.round(Math.max(Math.hypot(tr.x-tl.x,tr.y-tl.y), Math.hypot(br.x-bl.x,br.y-bl.y)));
+        const outH = Math.round(Math.max(Math.hypot(bl.x-tl.x,bl.y-tl.y), Math.hypot(br.x-tr.x,br.y-tr.y)));
+        if (outW < 20 || outH < 20) { scToast('Selection too small','err'); return; }
+        const off = document.createElement('canvas'); off.width=side.originalW; off.height=side.originalH;
+        off.getContext('2d').drawImage(side.originalImage,0,0);
+        const src = cv.imread(off);
+        const srcPts = cv.matFromArray(4,1,cv.CV_32FC2,[tl.x,tl.y,tr.x,tr.y,br.x,br.y,bl.x,bl.y]);
+        const dstPts = cv.matFromArray(4,1,cv.CV_32FC2,[0,0,outW,0,outW,outH,0,outH]);
+        const M = cv.getPerspectiveTransform(srcPts,dstPts);
+        const warped = new cv.Mat();
+        cv.warpPerspective(src,warped,M,new cv.Size(outW,outH),cv.INTER_LANCZOS4,cv.BORDER_CONSTANT);
+        const tmp = document.createElement('canvas'); tmp.width=outW; tmp.height=outH;
+        cv.imshow(tmp,warped);
+        src.delete(); srcPts.delete(); dstPts.delete(); M.delete(); warped.delete();
+        adFinaliseCrop(side, tmp, side.prefix==='adFront'?'Front Cropped':'Back Cropped');
+      } catch(err) { console.error(err); scToast('Crop failed: '+err.message,'err'); }
+    }
+    document.getElementById('adFrontCrop').addEventListener('click', () => adCropSide(adFront));
+    document.getElementById('adBackCrop').addEventListener('click',  () => adCropSide(adBack));
+
+    function adSkipSide(side) {
+      if (!side.originalImage) { scToast('Upload first','warn'); return; }
+      const tmp = document.createElement('canvas'); tmp.width=side.originalW; tmp.height=side.originalH;
+      tmp.getContext('2d').drawImage(side.originalImage,0,0);
+      adFinaliseCrop(side, tmp, side.prefix==='adFront'?'Full Front Used':'Full Back Used');
+    }
+    document.getElementById('adFrontSkip').addEventListener('click', () => adSkipSide(adFront));
+    document.getElementById('adBackSkip').addEventListener('click',  () => adSkipSide(adBack));
+
+    function adSetupBC(side) {
+      const applyFilter = () => {
+        side.brightness = parseInt(document.getElementById(side.bSlId).value);
+        side.contrast   = parseInt(document.getElementById(side.cSlId).value);
+        document.getElementById(side.bValId).textContent = side.brightness;
+        document.getElementById(side.cValId).textContent = side.contrast;
+        document.getElementById(side.imgId).style.filter = `brightness(${side.brightness}%) contrast(${side.contrast}%)`;
+        if (side._rawCanvas) adBakeAdjusted(side);
+      };
+      document.getElementById(side.bSlId).addEventListener('input', applyFilter);
+      document.getElementById(side.cSlId).addEventListener('input', applyFilter);
+      document.getElementById(side.bcResetId).addEventListener('click', () => {
+        document.getElementById(side.bSlId).value = 100; document.getElementById(side.cSlId).value = 100; applyFilter(); scToast('Reset','warn');
+      });
+    }
+    adSetupBC(adFront); adSetupBC(adBack);
+
+    function adUpdateBadge(side, text, cls) {
+      const el = document.getElementById(side.badgeId); el.textContent = text; el.className = 'sc-badge-right ' + cls;
+    }
+    function adUpdateSteps() {
+      const hF = !!adFront.originalImage, hB = !!adBack.originalImage;
+      const cF = !!adFront.croppedDataURL, cB = !!adBack.croppedDataURL;
+      adSetStep(1, hF, cF); adSetStep(2, hB, cB); adSetStep(3, cF&&cB, false);
+    }
+    function adSetStep(n, active, done) {
+      const el = document.getElementById('adStep'+n);
+      el.className = 'sc-step' + (done?' done':active?' active':'');
+      el.querySelector('.sc-step-num').textContent = done ? '✓' : n;
+    }
+    function adUpdateGenerateBtn() {
+      const ready = !!(adFront.croppedDataURL && adBack.croppedDataURL);
+      document.getElementById('adGenerate').disabled = !ready;
+      const st = document.getElementById('adReadyStatus');
+      st.textContent = ready ? 'Both sides ready ✓' : (!adFront.croppedDataURL && !adBack.croppedDataURL) ? 'Upload & crop both sides' : !adFront.croppedDataURL ? 'Crop front side first' : 'Crop back side first';
+      st.style.color = ready ? '#00ff88' : '#6b6b80';
+    }
+
+    function adLoadImg(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = src;
+      });
+    }
+    function getPdfImageFormat(dataUrl) {
+      if (typeof dataUrl !== 'string') return 'JPEG';
+      if (dataUrl.startsWith('data:image/png'))  return 'PNG';
+      if (dataUrl.startsWith('data:image/webp')) return 'WEBP';
+      return 'JPEG';
+    }
+    function downloadPdfBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = filename; link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function generateAadhaarPDF(frontImg, backImg) {
+      const PAGE_W = 210, PAGE_H = 297, CARD_W = 85.6, CARD_H = 54, GAP = 10;
+      const totalWidth = (CARD_W * 2) + GAP;
+      const x = (PAGE_W - totalWidth) / 2;
+      const y = 26.5;
+      const safeFrontX = Math.max(14, x);
+      const safeBackX  = safeFrontX + CARD_W + GAP;
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      doc.addImage(frontImg, getPdfImageFormat(frontImg), safeFrontX, y, CARD_W, CARD_H);
+      doc.addImage(backImg,  getPdfImageFormat(backImg),  safeBackX,  y, CARD_W, CARD_H);
+      adPdfBlob = doc.output('blob');
+
+      const canvas = document.getElementById('adPdfCanvas');
+      const previewWidth  = Math.max(320, Math.min(560, window.innerWidth - 60));
+      const previewHeight = Math.round(previewWidth * (PAGE_H / PAGE_W));
+      const pxPerMm = previewWidth / PAGE_W;
+      canvas.width = previewWidth; canvas.height = previewHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, previewWidth, previewHeight);
+
+      const [front, back] = await Promise.all([adLoadImg(frontImg), adLoadImg(backImg)]);
+      ctx.drawImage(front, safeFrontX*pxPerMm, y*pxPerMm, CARD_W*pxPerMm, CARD_H*pxPerMm);
+      ctx.drawImage(back,  safeBackX*pxPerMm,  y*pxPerMm, CARD_W*pxPerMm, CARD_H*pxPerMm);
+
+      document.getElementById('adPdfSection').classList.add('visible');
+      document.getElementById('adPdfSection').scrollIntoView({behavior:'smooth',block:'nearest'});
+      adSetStep(3, true, true);
+      return adPdfBlob;
+    }
+
+    async function adGeneratePDF() {
+      if (!adFront.croppedDataURL || !adBack.croppedDataURL) { scToast('Crop both sides first','warn'); return; }
+      scToast('Building PDF…','ok');
+      await generateAadhaarPDF(adFront.croppedDataURL, adBack.croppedDataURL);
+      scToast('PDF ready ✓','ok');
+    }
+    document.getElementById('adGenerate').addEventListener('click', adGeneratePDF);
+    document.getElementById('adRegenerate').addEventListener('click', adGeneratePDF);
+    document.getElementById('adDownload').addEventListener('click', async () => {
+      if (!adPdfBlob) {
+        if (!adFront.croppedDataURL || !adBack.croppedDataURL) { scToast('Crop both sides first','warn'); return; }
+        scToast('Building PDF…','ok');
+        await generateAadhaarPDF(adFront.croppedDataURL, adBack.croppedDataURL);
+      }
+      downloadPdfBlob(adPdfBlob, 'aadhaar.pdf');
+      scToast('PDF downloaded ✓','ok');
+    });
+
+    adUpdateGenerateBtn(); adUpdateSteps();
+
+    // ════════════════════════════════════════════════════════════════
+    // PAN SCANNER
+    // ════════════════════════════════════════════════════════════════
+    const PN_COLORS = ['#ff9500','#ff3d6b','#ffd600','#00ff88'];
+    const pn = {
+      originalImage:null, originalW:0, originalH:0, scale:1,
+      points:[], draggingIdx:-1, croppedDataURL:null, _rawCanvas:null,
+      brightness:100, contrast:100,
+      get canvas() { return document.getElementById('pnCanvas'); },
+      get ctx()    { return this.canvas.getContext('2d'); }
+    };
+    let pnPdfBlob = null;
+
+    function pnRenderImg() {
+      const wrap = document.getElementById('pnCanvasWrap');
+      const maxW = wrap.clientWidth - 32;
+      const scale = Math.min(maxW/pn.originalW, 280/pn.originalH, 1);
+      pn.scale = scale; pn.canvas.width=Math.round(pn.originalW*scale); pn.canvas.height=Math.round(pn.originalH*scale);
+      pn.ctx.drawImage(pn.originalImage,0,0,pn.canvas.width,pn.canvas.height);
+    }
+    function pnRedraw() {
+      pn.ctx.clearRect(0,0,pn.canvas.width,pn.canvas.height);
+      pn.ctx.drawImage(pn.originalImage,0,0,pn.canvas.width,pn.canvas.height); pnDrawPoints();
+    }
+    function pnDrawPoints() {
+      const pts=pn.points; if (!pts.length) return; const ctx=pn.ctx;
+      if (pts.length>=2) {
+        ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+        for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+        if(pts.length===4) ctx.closePath();
+        ctx.strokeStyle='rgba(255,149,0,0.7)'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]);
+        if(pts.length===4){ctx.fillStyle='rgba(255,149,0,0.06)';ctx.fill();}
+      }
+      pts.forEach((p,i)=>{
+        ctx.beginPath();ctx.arc(p.x,p.y,14,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,0.45)';ctx.fill();
+        ctx.beginPath();ctx.arc(p.x,p.y,10,0,Math.PI*2);ctx.strokeStyle=PN_COLORS[i];ctx.lineWidth=2;ctx.stroke();
+        ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);ctx.fillStyle=PN_COLORS[i];ctx.fill();
+        ctx.font='bold 9px Space Mono,monospace';ctx.fillStyle=PN_COLORS[i];ctx.textAlign='center';ctx.fillText(PT_LABELS[i],p.x,p.y-16);
+      });
+    }
+    function pnUpdateChips() {
+      for(let i=0;i<4;i++){
+        const chip=document.getElementById('pnpt'+i);
+        if(pn.points[i]){chip.textContent=PT_LABELS[i]+' '+Math.round(pn.points[i].x/pn.scale)+','+Math.round(pn.points[i].y/pn.scale);chip.classList.add('set');}
+        else{chip.textContent=PT_LABELS[i]+' —';chip.classList.remove('set');}
+      }
+      document.getElementById('pnCrop').disabled = pn.points.length < 4;
+    }
+    function pnGetPos(e) {
+      const rect=pn.canvas.getBoundingClientRect(); const sx=pn.canvas.width/rect.width,sy=pn.canvas.height/rect.height;
+      return e.touches?{x:(e.touches[0].clientX-rect.left)*sx,y:(e.touches[0].clientY-rect.top)*sy}:{x:(e.clientX-rect.left)*sx,y:(e.clientY-rect.top)*sy};
+    }
+    function pnFindNearest(pos) {
+      let minD=Infinity,idx=-1;
+      pn.points.forEach((p,i)=>{const d=Math.hypot(p.x-pos.x,p.y-pos.y);if(d<DRAG_R&&d<minD){minD=d;idx=i;}});
+      return idx;
+    }
+
+    // ─── PAN canvas setup WITH loupe ────────────────────────────────
+    (function() {
+      const c = pn.canvas;
+      const PN_ACCENT = '#ff9500';
+
+      const getCP = e => e.touches
+        ? { cx: e.touches[0].clientX, cy: e.touches[0].clientY }
+        : { cx: e.clientX, cy: e.clientY };
+
+      const down = e => {
+        if (!pn.originalImage) return;
+        e.preventDefault();
+        const pos = pnGetPos(e); const { cx, cy } = getCP(e);
+        const near = pnFindNearest(pos);
+        if (near !== -1) {
+          pn.draggingIdx = near;
+          showLoupe(c, pn.originalImage, pos.x, pos.y, cx, cy, PN_ACCENT);
+          return;
+        }
+        if (pn.points.length < 4) {
+          pn.points.push(pos); pnRedraw(); pnUpdateChips();
+          showLoupe(c, pn.originalImage, pos.x, pos.y, cx, cy, PN_ACCENT);
+          if (pn.points.length === 4) scToast('4 corners set — press Crop', 'ok');
+        }
+      };
+
+      const move = e => {
+        if (!pn.originalImage) return;
+        const pos = pnGetPos(e); const { cx, cy } = getCP(e);
+        const near = pnFindNearest(pos);
+        if (pn.draggingIdx !== -1) {
+          e.preventDefault();
+          pn.points[pn.draggingIdx] = pos; pnRedraw(); pnUpdateChips();
+          showLoupe(c, pn.originalImage, pos.x, pos.y, cx, cy, PN_ACCENT);
+        } else if (near !== -1 || pn.points.length < 4) {
+          showLoupe(c, pn.originalImage, pos.x, pos.y, cx, cy, PN_ACCENT);
+        } else {
+          hideLoupe();
+        }
+      };
+
+      const up = () => { pn.draggingIdx = -1; hideLoupe(); pnUpdateChips(); };
+
+      c.addEventListener('mousedown',  down);
+      c.addEventListener('mousemove',  move);
+      c.addEventListener('mouseup',    up);
+      c.addEventListener('mouseleave', hideLoupe);
+      c.addEventListener('touchstart', down,  { passive: false });
+      c.addEventListener('touchmove',  move,  { passive: false });
+      c.addEventListener('touchend',   up);
+    })();
+
+    document.getElementById('pnFileInput').addEventListener('change',e=>{
+      const file=e.target.files[0];if(!file)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{const img=new Image();img.onload=()=>{
+        pn.originalImage=img;pn.originalW=img.naturalWidth;pn.originalH=img.naturalHeight;
+        pn.points=[];pn.croppedDataURL=null;pn._rawCanvas=null;pn.brightness=100;pn.contrast=100;
+        pnRenderImg();
+        document.getElementById('pnUploadLabel').style.display='none';
+        pn.canvas.style.display='block';
+        document.getElementById('pnInstructions').classList.add('visible');
+        document.getElementById('pnReset').disabled=false;document.getElementById('pnSkip').disabled=false;document.getElementById('pnRotate').disabled=false;document.getElementById('pnCrop').disabled=true;
+        document.getElementById('pnStrip').classList.remove('visible');document.getElementById('pnBc').classList.remove('visible');
+        document.getElementById('pnBright').value=100;document.getElementById('pnContr').value=100;
+        document.getElementById('pnBrightVal').textContent=100;document.getElementById('pnContrVal').textContent=100;
+        pnUpdateBadge('UPLOADED','');pnUpdateChips();pnUpdateGenerateBtn();pnUpdateSteps();
+        scToast('Image loaded — click 4 corners','ok');
+      };img.src=ev.target.result;};reader.readAsDataURL(file);
+    });
+
+    document.getElementById('pnReset').addEventListener('click',()=>{
+      pn.points=[];pn.croppedDataURL=null;pn._rawCanvas=null;pn.brightness=100;pn.contrast=100;
+      if(pn.originalImage)pnRedraw();pnUpdateChips();
+      document.getElementById('pnStrip').classList.remove('visible');document.getElementById('pnBc').classList.remove('visible');
+      document.getElementById('pnBright').value=100;document.getElementById('pnContr').value=100;
+      document.getElementById('pnBrightVal').textContent=100;document.getElementById('pnContrVal').textContent=100;
+      document.getElementById('pnSkip').disabled=!pn.originalImage;document.getElementById('pnRotate').disabled=!pn.originalImage;
+      pnUpdateBadge('UPLOADED','');pnUpdateGenerateBtn();pnUpdateSteps();scToast('Reset','warn');
+    });
+
+    function pnBakeAdjusted(){
+      const src=pn._rawCanvas;const tmp=document.createElement('canvas');tmp.width=src.width;tmp.height=src.height;
+      const ctx=tmp.getContext('2d');ctx.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;ctx.drawImage(src,0,0);ctx.filter='none';
+      pn.croppedDataURL=tmp.toDataURL('image/jpeg',0.97);pnUpdateGenerateBtn();
+    }
+    function pnFinaliseCrop(rawCanvas,label){
+      pn._rawCanvas=rawCanvas;pn.croppedDataURL=rawCanvas.toDataURL('image/jpeg',0.97);
+      const img=document.getElementById('pnPreviewImg');img.src=pn.croppedDataURL;
+      img.style.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;pnBakeAdjusted();
+      document.getElementById('pnStripLbl').textContent='✓ '+label;
+      document.getElementById('pnStrip').classList.add('visible');document.getElementById('pnBc').classList.add('visible');
+      pnUpdateBadge('READY','ok');pnUpdateGenerateBtn();pnUpdateSteps();scToast('PAN ready ✓','ok');
+    }
+    document.getElementById('pnSkip').addEventListener('click',()=>{
+      if(!pn.originalImage){scToast('Upload first','warn');return;}
+      const tmp=document.createElement('canvas');tmp.width=pn.originalW;tmp.height=pn.originalH;
+      tmp.getContext('2d').drawImage(pn.originalImage,0,0);pnFinaliseCrop(tmp,'Full Image Used');
+    });
+    document.getElementById('pnRotate').addEventListener('click',()=>{
+      if(!pn.originalImage){scToast('Upload first','warn');return;}
+      if(pn._rawCanvas){
+        pn._rawCanvas=rotateCanvasClockwise(pn._rawCanvas);
+        pnFinaliseCrop(pn._rawCanvas,'PAN Card Rotated');
+      }else{
+        const sourceCanvas=document.createElement('canvas');
+        sourceCanvas.width=pn.originalW;sourceCanvas.height=pn.originalH;
+        sourceCanvas.getContext('2d').drawImage(pn.originalImage,0,0);
+        const rotatedCanvas=rotateCanvasClockwise(sourceCanvas);
+        canvasToImage(rotatedCanvas).then(img=>{
+          pn.originalImage=img;pn.originalW=rotatedCanvas.width;pn.originalH=rotatedCanvas.height;
+          pn.points=[];pnRenderImg();pnUpdateChips();document.getElementById('pnCrop').disabled=true;
+          pnUpdateGenerateBtn();pnUpdateSteps();scToast('Rotated 90°','ok');
+        }).catch(err=>scToast(err.message,'err'));
+      }
+    });
+    document.getElementById('pnCrop').addEventListener('click',()=>{
+      if(pn.points.length<4){scToast('Need 4 corners','warn');return;}
+      if(!cvReady){scToast('OpenCV not ready','err');return;}
+      try{
+        const pts=pn.points.map(p=>({x:p.x/pn.scale,y:p.y/pn.scale}));const[tl,tr,br,bl]=pts;
+        const outW=Math.round(Math.max(Math.hypot(tr.x-tl.x,tr.y-tl.y),Math.hypot(br.x-bl.x,br.y-bl.y)));
+        const outH=Math.round(Math.max(Math.hypot(bl.x-tl.x,bl.y-tl.y),Math.hypot(br.x-tr.x,br.y-tr.y)));
+        if(outW<20||outH<20){scToast('Selection too small','err');return;}
+        const off=document.createElement('canvas');off.width=pn.originalW;off.height=pn.originalH;off.getContext('2d').drawImage(pn.originalImage,0,0);
+        const src=cv.imread(off);
+        const srcPts=cv.matFromArray(4,1,cv.CV_32FC2,[tl.x,tl.y,tr.x,tr.y,br.x,br.y,bl.x,bl.y]);
+        const dstPts=cv.matFromArray(4,1,cv.CV_32FC2,[0,0,outW,0,outW,outH,0,outH]);
+        const M=cv.getPerspectiveTransform(srcPts,dstPts);const warped=new cv.Mat();
+        cv.warpPerspective(src,warped,M,new cv.Size(outW,outH),cv.INTER_LANCZOS4,cv.BORDER_CONSTANT);
+        const tmp=document.createElement('canvas');tmp.width=outW;tmp.height=outH;cv.imshow(tmp,warped);
+        src.delete();srcPts.delete();dstPts.delete();M.delete();warped.delete();
+        pnFinaliseCrop(tmp,'PAN Card Cropped');
+      }catch(err){console.error(err);scToast('Crop failed: '+err.message,'err');}
+    });
+    document.getElementById('pnBright').addEventListener('input',()=>{pn.brightness=parseInt(document.getElementById('pnBright').value);document.getElementById('pnBrightVal').textContent=pn.brightness;document.getElementById('pnPreviewImg').style.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;if(pn._rawCanvas)pnBakeAdjusted();});
+    document.getElementById('pnContr').addEventListener('input',()=>{pn.contrast=parseInt(document.getElementById('pnContr').value);document.getElementById('pnContrVal').textContent=pn.contrast;document.getElementById('pnPreviewImg').style.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;if(pn._rawCanvas)pnBakeAdjusted();});
+    document.getElementById('pnBcReset').addEventListener('click',()=>{document.getElementById('pnBright').value=100;document.getElementById('pnContr').value=100;pn.brightness=100;pn.contrast=100;document.getElementById('pnBrightVal').textContent=100;document.getElementById('pnContrVal').textContent=100;document.getElementById('pnPreviewImg').style.filter='';if(pn._rawCanvas)pnBakeAdjusted();scToast('Reset','warn');});
+
+    function pnUpdateBadge(text,cls){const el=document.getElementById('pnBadge');el.textContent=text;el.className='sc-badge-right '+cls;}
+    function pnUpdateSteps(){
+      const h=!!pn.originalImage,a=!!pn._rawCanvas,c=!!pn.croppedDataURL;
+      pnSetStep(1,h,a);pnSetStep(2,a,c&&a);pnSetStep(3,c,false);
+    }
+    function pnSetStep(n,active,done){
+      const el=document.getElementById('pnStep'+n);el.className='sc-step'+(done?' done':active?' active':'');
+      el.querySelector('.sc-step-num').textContent=done?'✓':n;
+    }
+    function pnUpdateGenerateBtn(){
+      const ready=!!pn.croppedDataURL;document.getElementById('pnGenerate').disabled=!ready;
+      const st=document.getElementById('pnReadyStatus');st.textContent=ready?'Ready to generate ✓':'Upload & crop card to continue';st.style.color=ready?'#00ff88':'#6b6b80';
+    }
+
+    async function generatePanPDF(panImg) {
+      const PAGE_W=210, PAGE_H=297, CARD_W=85.6, CARD_H=54;
+      const x=(PAGE_W-CARD_W)/2, y=26.5;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+      doc.addImage(panImg, getPdfImageFormat(panImg), x, y, CARD_W, CARD_H);
+      pnPdfBlob = doc.output('blob');
+
+      const canvas = document.getElementById('pnPdfCanvas');
+      const previewWidth  = Math.max(320, Math.min(560, window.innerWidth - 60));
+      const previewHeight = Math.round(previewWidth * (PAGE_H/PAGE_W));
+      const pxPerMm = previewWidth/PAGE_W;
+      canvas.width=previewWidth; canvas.height=previewHeight;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,previewWidth,previewHeight);
+      const cardImg=await adLoadImg(panImg);
+      ctx.drawImage(cardImg, x*pxPerMm, y*pxPerMm, CARD_W*pxPerMm, CARD_H*pxPerMm);
+
+      document.getElementById('pnPdfSection').classList.add('visible');
+      document.getElementById('pnPdfSection').scrollIntoView({behavior:'smooth',block:'nearest'});
+      pnSetStep(3,true,true);
+      return pnPdfBlob;
+    }
+    async function pnGeneratePDF(){
+      if(!pn.croppedDataURL){scToast('Crop card first','warn');return;}
+      scToast('Building PDF…','ok');
+      await generatePanPDF(pn.croppedDataURL);
+      scToast('PDF ready ✓','ok');
+    }
+    document.getElementById('pnGenerate').addEventListener('click',pnGeneratePDF);
+    document.getElementById('pnRegenerate').addEventListener('click',pnGeneratePDF);
+    document.getElementById('pnDownload').addEventListener('click',async()=>{
+      if(!pnPdfBlob){
+        if(!pn.croppedDataURL){scToast('Crop card first','warn');return;}
+        scToast('Building PDF…','ok');
+        await generatePanPDF(pn.croppedDataURL);
+      }
+      downloadPdfBlob(pnPdfBlob,'pan.pdf');
+      scToast('PDF downloaded ✓','ok');
+    });
+    pnUpdateGenerateBtn(); pnUpdateSteps();
+
+    // ════════════════════════════════════════════════════════════════
+    // PHOTO MODE
+    // ════════════════════════════════════════════════════════════════
+    let photos=[], nextId=0, activeCropper=null, pendingCropId=null;
+    const dropZone=document.getElementById('dropZone'),imageInput=document.getElementById('imageInput');
+    const photoList=document.getElementById('photoList'),addMoreWrapper=document.getElementById('addMoreWrapper');
+    const generateBtn=document.getElementById('generateBtn'),downloadPhotoBtn=document.getElementById('downloadPhotoBtn'),downloadBtn=document.getElementById('downloadBtn');
+    const pdfPreview=document.getElementById('pdfPreview'),loading=document.getElementById('loading');
+    const cropperModal=document.getElementById('cropperModal'),cropModalImage=document.getElementById('cropModalImage');
+
+    function fileToDataURL(file){
+      return new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(reader.result);
+        reader.onerror=()=>reject(new Error('Failed to read image'));
+        reader.readAsDataURL(file);
+      });
+    }
+    function blobToFile(blob,name){ return new File([blob],name,{type:blob.type||'image/png'}); }
+
+    async function rotatePhotoFile(file){
+      const dataUrl=await fileToDataURL(file);
+      const img=await adLoadImg(dataUrl);
+      const canvas=document.createElement('canvas');
+      canvas.width=img.naturalHeight||img.height; canvas.height=img.naturalWidth||img.width;
+      const ctx=canvas.getContext('2d');
+      ctx.translate(canvas.width,0); ctx.rotate(Math.PI/2); ctx.drawImage(img,0,0);
+      const mimeType=(file.type&&file.type.startsWith('image/'))?file.type:'image/png';
+      return new Promise((resolve,reject)=>{
+        canvas.toBlob(blob=>{
+          if(!blob){reject(new Error('Could not rotate image'));return;}
+          resolve(blobToFile(blob,file.name));
+        },mimeType,mimeType==='image/jpeg'?0.95:undefined);
+      });
+    }
+    async function rotatePhoto(id){
+      const photo=photos.find(p=>p.id===id); if(!photo)return;
+      const targetKey=photo.croppedFile?'croppedFile':'originalFile';
+      const rotatedFile=await rotatePhotoFile(photo[targetKey]);
+      photo[targetKey]=rotatedFile;
+      if(photo.previewUrl&&photo.previewUrl.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl);
+      photo.previewUrl=URL.createObjectURL(rotatedFile);
+      renderPhotoList(); showNotification("Photo rotated.",false);
+    }
+    async function downloadPhotoAsJpeg(){
+      if(!photos.length){showNotification("Please upload at least one photo.");return;}
+      const photo=photos[0];
+      const sourceFile=photo.croppedFile||photo.originalFile;
+      const sourceDataUrl=photo.croppedFile?photo.previewUrl:await fileToDataURL(sourceFile);
+      const img=await adLoadImg(sourceDataUrl);
+      const canvas=document.createElement('canvas');
+      canvas.width=img.naturalWidth||img.width; canvas.height=img.naturalHeight||img.height;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      canvas.toBlob(blob=>{
+        if(!blob){showNotification("Could not create JPEG. Try again.");return;}
+        downloadPdfBlob(blob,'photo-1.jpg');
+        showNotification("JPEG downloaded!",false);
+      },'image/jpeg',0.95);
+    }
+
+    function renderPhotoList(){
+      photoList.innerHTML='';
+      photos.forEach(photo=>{
+        const card=document.createElement('div');
+        card.className='photo-card flex items-center gap-4 bg-gray-900/60 border border-gray-700 rounded-xl p-4';
+        card.innerHTML=`<img src="${photo.previewUrl}" class="w-16 h-20 object-cover rounded-lg border border-gray-600 flex-shrink-0"/><div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-200 truncate">${photo.originalFile.name}</p><p class="text-xs text-gray-500 mt-0.5">${photo.croppedFile?'Cropped':'Not cropped'}</p></div><div class="flex flex-col items-center gap-1"><label class="text-xs text-gray-400">Copies</label><input type="number" value="${photo.copies}" min="1" max="54" class="bg-gray-700 border border-gray-600 rounded-lg w-16 p-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" data-id="${photo.id}"/></div><div class="flex flex-col gap-2"><button class="rotate-photo-btn text-xs bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Rotate</button><button class="crop-btn text-xs bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Crop</button><button class="remove-btn text-xs bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Remove</button></div>`;
+        photoList.appendChild(card);
+      });
+      photoList.querySelectorAll('input[type=number]').forEach(input=>input.addEventListener('change',e=>{const p=photos.find(p=>p.id===parseInt(e.target.dataset.id));if(p)p.copies=Math.max(1,parseInt(e.target.value)||1);}));
+      photoList.querySelectorAll('.rotate-photo-btn').forEach(btn=>btn.addEventListener('click',e=>{rotatePhoto(parseInt(e.target.dataset.id)).catch(()=>showNotification("Could not rotate photo. Try again."));}));
+      photoList.querySelectorAll('.crop-btn').forEach(btn=>btn.addEventListener('click',e=>openCropper(parseInt(e.target.dataset.id))));
+      photoList.querySelectorAll('.remove-btn').forEach(btn=>btn.addEventListener('click',e=>{photos=photos.filter(p=>p.id!==parseInt(e.target.dataset.id));renderPhotoList();if(photos.length===0)addMoreWrapper.classList.add('hidden');}));
+      addMoreWrapper.classList.toggle('hidden',photos.length===0);
+    }
+    function addFiles(files){
+      const valid=['image/jpeg','image/jpg','image/png','image/webp'];let added=0;
+      Array.from(files).forEach(file=>{if(!valid.includes(file.type))return;photos.push({id:nextId++,originalFile:file,croppedFile:null,previewUrl:URL.createObjectURL(file),copies:6});added++;});
+      if(!added)showNotification("Please upload valid image files.");renderPhotoList();
+    }
+    dropZone.addEventListener('click',()=>imageInput.click());
+    dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('border-blue-400');});
+    dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('border-blue-400'));
+    dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('border-blue-400');addFiles(e.dataTransfer.files);});
+    imageInput.addEventListener('change',()=>{addFiles(imageInput.files);imageInput.value='';});
+    document.getElementById('addMoreBtn').addEventListener('click',()=>imageInput.click());
+
+    function openCropper(id){
+      const photo=photos.find(p=>p.id===id);if(!photo)return;
+      pendingCropId=id;cropModalImage.src=photo.previewUrl;cropperModal.classList.remove('hidden');
+      if(activeCropper)activeCropper.destroy();
+      activeCropper=new Cropper(cropModalImage,{aspectRatio:384/472,viewMode:1,dragMode:'move',autoCropArea:1});
+    }
+    document.getElementById('confirmCropBtn').addEventListener('click',()=>{
+      if(!activeCropper||pendingCropId===null)return;
+      activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{
+        const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;
+        photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/png'});
+        photo.previewUrl=URL.createObjectURL(blob);
+        activeCropper.destroy();activeCropper=null;pendingCropId=null;
+        cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);
+      },'image/png');
+    });
+    document.getElementById('cancelCropBtn').addEventListener('click',()=>{
+      if(activeCropper){activeCropper.destroy();activeCropper=null;}
+      pendingCropId=null;cropperModal.classList.add('hidden');
+    });
+    document.getElementById('toggleAdvanced').addEventListener('click',function(){
+      const el=document.getElementById('advancedOptions');
+      const visible=el.style.display==='block';
+      el.style.display=visible?'none':'block';
+      this.textContent=visible?'Advanced Options':'Hide Advanced Options';
+    });
+    downloadPhotoBtn.addEventListener('click',()=>{downloadPhotoAsJpeg().catch(()=>showNotification("Could not download JPEG. Try again."));});
+    generateBtn.addEventListener('click',()=>{
+      if(!photos.length){showNotification("Please upload at least one photo.");return;}
+      const fd=new FormData();
+      photos.forEach((p,i)=>{fd.append(`image_${i}`,p.croppedFile||p.originalFile);fd.append(`copies_${i}`,p.copies);});
+      fd.append('width',document.getElementById('width').value);fd.append('height',document.getElementById('height').value);
+      fd.append('spacing',document.getElementById('spacing').value);fd.append('border',document.getElementById('border').value);
+      fd.append('bg_color',document.getElementById('bgColorValue').value);
+      loading.classList.remove('hidden');generateBtn.disabled=true;downloadBtn.classList.add('hidden');pdfPreview.classList.add('hidden');
+      fetch((window.BACKEND_URL||'')+'/process',{method:'POST',body:fd})
+        .then(async r=>{
+          if(r.status===429){showNotification("Quota Exceeded. Try again later.");return null;}
+          if(r.status===410){showNotification("Cannot detect face in one of the images.");return null;}
+          if(!r.ok)throw new Error();return r.blob();
+        })
+        .then(blob=>{
+          if(!blob)return;
+          const url=URL.createObjectURL(blob);
+          pdfPreview.classList.remove('hidden');pdfPreview.src=url;
+          downloadBtn.classList.remove('hidden');
+          downloadBtn.onclick=()=>{const a=document.createElement('a');a.href=url;a.download='passport-sheet.pdf';a.click();};
+          showNotification("PDF generated!",false);
+        })
+        .catch(()=>showNotification("Processing failed. Try again."))
+        .finally(()=>{loading.classList.add('hidden');generateBtn.disabled=false;});
+    });
+
+    function setSelectedColor(hex){
+      document.getElementById('bgColorValue').value=hex;
+      document.getElementById('selectedColorPreview').style.background=hex;
+      document.getElementById('customBgColor').value=hex;
+      document.querySelectorAll('.bg-color-btn').forEach(btn=>{
+        const m=btn.dataset.color===hex;
+        btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);
+        btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);
+      });
+    }
+    document.querySelectorAll('.bg-color-btn').forEach(btn=>btn.addEventListener('click',()=>setSelectedColor(btn.dataset.color)));
+    document.getElementById('customBgColor').addEventListener('input',e=>{
+      document.querySelectorAll('.bg-color-btn').forEach(b=>{b.classList.remove('ring-blue-400','border-blue-400');b.classList.add('ring-transparent','border-transparent');});
+      document.getElementById('bgColorValue').value=e.target.value;
+      document.getElementById('selectedColorPreview').style.background=e.target.value;
+    });
+    setSelectedColor('#FFFFFF');
+
+    // ─── Feedback ────────────────────────────────────────────────────
+    document.getElementById('feedbackBtn').addEventListener('click',()=>document.getElementById('feedbackModal').classList.remove('hidden'));
+    document.getElementById('closeModal').addEventListener('click',()=>document.getElementById('feedbackModal').classList.add('hidden'));
+    document.getElementById('feedbackForm').addEventListener('submit',e=>{
+      e.preventDefault();
+      const contact=e.target.contact.value.trim();const message=e.target.message.value.trim();
+      if(!contact||!message){showNotification("Please fill out all fields.");return;}
+      const btn=e.target.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent='Submitting…';
+      emailjs.send("service_aoewzsq","template_hbw13lt",{contact,message,user_agent:navigator.userAgent,time:new Date().toLocaleString()})
+        .then(()=>{showNotification("Feedback submitted!",false);document.getElementById('feedbackModal').classList.add('hidden');e.target.reset();})
+        .catch(()=>showNotification("Failed to send. Try again."))
+        .finally(()=>{btn.disabled=false;btn.textContent='Submit';});
+    });
+  </script>
+</body>
+</html>
