@@ -1425,13 +1425,22 @@
         : photos[0];
       const photoNumber=1;
       const sourceFile=photo.croppedFile||photo.originalFile;
-      const sourceKey=getPreviewSourceKey(photo);
       downloadPhotoBtn.disabled=true;
-      downloadPhotoBtn.textContent='Removing BG...';
+      downloadPhotoBtn.textContent='Preparing...';
       try{
+        if(photoPreviewCanvas.width > 0 && photoPreviewCanvas.height > 0 && !photoPreviewSection.classList.contains('hidden')){
+          photoPreviewCanvas.toBlob(blob=>{
+            if(!blob){showNotification("Could not create JPEG. Try again.");return;}
+            downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
+            showNotification("Photo downloaded!",false);
+          },'image/jpeg',0.95);
+          return;
+        }
+
+        downloadPhotoBtn.textContent='Removing BG...';
         let processedUrl='';
         let shouldRevoke=false;
-        if(previewTransparentUrl && previewSourceKey===sourceKey){
+        if(previewTransparentUrl){
           processedUrl=previewTransparentUrl;
         }else{
           const removedBgBlob=await removePhotoBackground(sourceFile);
