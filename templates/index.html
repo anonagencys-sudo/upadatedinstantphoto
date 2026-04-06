@@ -1327,12 +1327,6 @@
         reader.readAsDataURL(file);
       });
     }
-    function getBackendBaseUrl(){
-      const configured=(window.BACKEND_URL||'').trim().replace(/\/+$/,'');
-      if(configured) return configured;
-      if(window.location.protocol==='file:') return 'http://127.0.0.1:5000';
-      return '';
-    }
     function getPreviewSourceFile(photo){
       return photo ? (photo.croppedFile || photo.originalFile) : null;
     }
@@ -1345,11 +1339,8 @@
       photoPreviewStatus.textContent=text;
     }
     async function drawPreviewCanvas(){
-      const photo=previewPhotoId===null?null:(photos.find(item=>item.id===previewPhotoId)||null);
-      const sourceFile=getPreviewSourceFile(photo);
-      const sourceUrl=previewTransparentUrl || (photo ? photo.previewUrl : '');
-      if(!sourceUrl && !sourceFile){return;}
-      const transparentImg=await adLoadImg(sourceUrl || await fileToDataURL(sourceFile));
+      if(!previewTransparentUrl){return;}
+      const transparentImg=await adLoadImg(previewTransparentUrl);
       const maxWidth=360;
       const scale=Math.min(maxWidth/(transparentImg.naturalWidth||transparentImg.width),1);
       const width=Math.max(1,Math.round((transparentImg.naturalWidth||transparentImg.width)*scale));
@@ -1365,7 +1356,7 @@
     async function fetchPreviewPhotoBlob(file){
       const formData=new FormData();
       formData.append('image',file);
-      const response=await fetch(getBackendBaseUrl()+'/preview-photo',{method:'POST',body:formData});
+      const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:formData});
       if(response.status===429) throw new Error('Preview quota exceeded. Try again later.');
       if(!response.ok) throw new Error('Background removal preview failed.');
       return response.blob();
@@ -1411,8 +1402,9 @@
         if(previewTransparentUrl && previewTransparentUrl.startsWith('blob:')) URL.revokeObjectURL(previewTransparentUrl);
         previewTransparentUrl=null;
         previewSourceKey=sourceKey;
-        await drawPreviewCanvas();
-        setPreviewStatus(error.message || 'Showing original preview','text-yellow-400');
+        photoPreviewSection.classList.add('hidden');
+        setPreviewStatus(error.message || 'Preview failed','text-red-400');
+        throw error;
       }
     }
     async function removePhotoBackground(file){
@@ -1428,7 +1420,7 @@
       downloadPhotoBtn.disabled=true;
       downloadPhotoBtn.textContent='Preparing...';
       try{
-        if(photoPreviewCanvas.width > 0 && photoPreviewCanvas.height > 0 && !photoPreviewSection.classList.contains('hidden')){
+        if(previewTransparentUrl && photoPreviewCanvas.width > 0 && photoPreviewCanvas.height > 0 && !photoPreviewSection.classList.contains('hidden')){
           photoPreviewCanvas.toBlob(blob=>{
             if(!blob){showNotification("Could not create JPEG. Try again.");return;}
             downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
