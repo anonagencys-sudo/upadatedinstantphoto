@@ -1315,8 +1315,10 @@
       const fd=new FormData();
       fd.append('image',file);
       const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:fd});
+      let errorPayload=null;
+      try{ errorPayload=await response.clone().json(); }catch{}
       if(response.status===429) throw new Error('Quota Exceeded. Try again later.');
-      if(!response.ok) throw new Error('Background removal failed. Try again.');
+      if(!response.ok) throw new Error(errorPayload?.error || 'Background removal failed. Try again.');
       return response.blob();
     }
     async function downloadPhotoAsJpeg(){
