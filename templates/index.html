@@ -67,6 +67,8 @@
 
     .sc-canvas-wrap { padding: 1rem; background: #060608; position: relative; min-height: 180px; display: flex; align-items: center; justify-content: center; }
     canvas.sc-canvas { display: block; max-width: 100%; max-height: 280px; border-radius: 6px; cursor: crosshair; touch-action: none; }
+    .sc-magnifier { position: fixed; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.75); box-shadow: 0 8px 24px rgba(0,0,0,0.45); overflow: hidden; pointer-events: none; z-index: 10000; display: none; background: #05070a; }
+    .sc-magnifier canvas { width: 100%; height: 100%; display: block; }
 
     .sc-upload-ph { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; cursor: pointer; transition: background 0.2s; }
     .sc-upload-ph input { display: none; }
@@ -152,6 +154,7 @@
 
   <!-- Shared scanner toast (one per page) -->
   <div id="scToast" class="sc-toast"><span class="sc-toast-dot"></span><span id="scToastMsg"></span></div>
+  <div id="scMagnifier" class="sc-magnifier"><canvas id="scMagnifierCanvas" width="120" height="120"></canvas></div>
 
   <header class="bg-gray-900/50 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-10">
     <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -225,6 +228,19 @@
             </div>
           </div>
           <input type="hidden" id="bgColorValue" value="#FFFFFF" />
+        </div>
+
+        <div id="photoPreviewSection" class="hidden mt-6 bg-gray-900/50 p-5 rounded-xl border border-gray-700">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+            <div>
+              <p class="text-sm font-semibold text-gray-200">Live Photo Preview</p>
+              <p class="text-xs text-gray-400">Preview after crop and background removal</p>
+            </div>
+            <span id="photoPreviewStatus" class="text-xs text-gray-400">Upload and crop a photo to preview</span>
+          </div>
+          <div class="flex justify-center">
+            <canvas id="photoPreviewCanvas" class="max-w-full rounded-xl border border-gray-700 bg-gray-950"></canvas>
+          </div>
         </div>
 
         <!-- Advanced Options -->
@@ -306,7 +322,6 @@
               <div class="sc-ctrl">
                 <button class="sc-btn danger" id="adFrontReset" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Reset</button>
                 <button class="sc-btn" id="adFrontSkip" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Use Full</button>
-                <button class="sc-btn" id="adFrontRotate" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6.34 5.34L4 10"/><path d="M4 15a8 8 0 0 0 13.66 3.66L20 14"/></svg>Rotate</button>
                 <button class="sc-btn success" id="adFrontCrop" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Crop</button>
               </div>
               <div class="sc-bc" id="adFrontBc">
@@ -343,7 +358,6 @@
               <div class="sc-ctrl">
                 <button class="sc-btn danger" id="adBackReset" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Reset</button>
                 <button class="sc-btn" id="adBackSkip" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Use Full</button>
-                <button class="sc-btn" id="adBackRotate" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6.34 5.34L4 10"/><path d="M4 15a8 8 0 0 0 13.66 3.66L20 14"/></svg>Rotate</button>
                 <button class="sc-btn success" id="adBackCrop" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Crop</button>
               </div>
               <div class="sc-bc" id="adBackBc">
@@ -446,7 +460,6 @@
             <div class="sc-ctrl">
               <button class="sc-btn danger" id="pnReset" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Reset</button>
               <button class="sc-btn" id="pnSkip" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Use Full Image</button>
-              <button class="sc-btn" id="pnRotate" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6.34 5.34L4 10"/><path d="M4 15a8 8 0 0 0 13.66 3.66L20 14"/></svg>Rotate</button>
               <button class="sc-btn success" id="pnCrop" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Crop</button>
             </div>
             <div class="sc-bc" id="pnBc">
@@ -686,11 +699,61 @@
     const AD_COLORS = ['#00e5ff','#ff3d6b','#ffd600','#00ff88'];
     const PT_LABELS = ['TL','TR','BR','BL'];
     const DRAG_R = 22;
+    const magnifierEl = document.getElementById('scMagnifier');
+    const magnifierCanvas = document.getElementById('scMagnifierCanvas');
+    const magnifierCtx = magnifierCanvas.getContext('2d');
 
-    function adMakeSide(prefix, canvasId, wrapId, labelId, fileId, instrId, ptsId, chipPfx, badgeId, resetId, skipId, rotateId, cropId, bcId, bSlId, bValId, cSlId, cValId, bcResetId, stripId, stripLblId, imgId) {
+    function hideMagnifier() {
+      magnifierEl.style.display = 'none';
+    }
+
+    function showMagnifier(canvas, pos) {
+      if (!canvas || !pos) return;
+      const rect = canvas.getBoundingClientRect();
+      const displayScaleX = rect.width / canvas.width;
+      const displayScaleY = rect.height / canvas.height;
+      const pointerX = rect.left + (pos.x * displayScaleX);
+      const pointerY = rect.top + (pos.y * displayScaleY);
+      const radius = 18;
+      const zoom = 2.4;
+      const sourceSize = radius * 2;
+
+      magnifierCtx.clearRect(0, 0, magnifierCanvas.width, magnifierCanvas.height);
+      magnifierCtx.save();
+      magnifierCtx.beginPath();
+      magnifierCtx.arc(60, 60, 60, 0, Math.PI * 2);
+      magnifierCtx.clip();
+      magnifierCtx.imageSmoothingEnabled = false;
+      magnifierCtx.drawImage(
+        canvas,
+        Math.max(0, pos.x - radius),
+        Math.max(0, pos.y - radius),
+        Math.min(sourceSize, canvas.width),
+        Math.min(sourceSize, canvas.height),
+        0,
+        0,
+        magnifierCanvas.width * zoom,
+        magnifierCanvas.height * zoom
+      );
+      magnifierCtx.restore();
+      magnifierCtx.beginPath();
+      magnifierCtx.moveTo(60, 0);
+      magnifierCtx.lineTo(60, 120);
+      magnifierCtx.moveTo(0, 60);
+      magnifierCtx.lineTo(120, 60);
+      magnifierCtx.strokeStyle = 'rgba(255,255,255,0.85)';
+      magnifierCtx.lineWidth = 1;
+      magnifierCtx.stroke();
+
+      magnifierEl.style.display = 'block';
+      magnifierEl.style.left = `${Math.min(window.innerWidth - 132, pointerX + 24)}px`;
+      magnifierEl.style.top = `${Math.max(12, pointerY - 132)}px`;
+    }
+
+    function adMakeSide(prefix, canvasId, wrapId, labelId, fileId, instrId, ptsId, chipPfx, badgeId, resetId, skipId, cropId, bcId, bSlId, bValId, cSlId, cValId, bcResetId, stripId, stripLblId, imgId) {
       return {
         prefix, canvasId, wrapId, labelId, fileId, instrId, ptsId, chipPfx, badgeId,
-        resetId, skipId, rotateId, cropId, bcId, bSlId, bValId, cSlId, cValId, bcResetId, stripId, stripLblId, imgId,
+        resetId, skipId, cropId, bcId, bSlId, bValId, cSlId, cValId, bcResetId, stripId, stripLblId, imgId,
         originalImage: null, originalW: 0, originalH: 0, scale: 1,
         points: [], draggingIdx: -1, croppedDataURL: null, _rawCanvas: null,
         brightness: 100, contrast: 100,
@@ -699,30 +762,10 @@
       };
     }
 
-    const adFront = adMakeSide('adFront','adFrontCanvas','adFrontWrap','adFrontLabel','adFrontFile','adFrontInstr','adFrontPts','adf','adFrontBadge','adFrontReset','adFrontSkip','adFrontRotate','adFrontCrop','adFrontBc','adFrontBright','adFrontBrightVal','adFrontContr','adFrontContrVal','adFrontBcReset','adFrontStrip','adFrontStripLbl','adFrontImg');
-    const adBack  = adMakeSide('adBack', 'adBackCanvas', 'adBackWrap', 'adBackLabel', 'adBackFile', 'adBackInstr', 'adBackPts', 'adb','adBackBadge', 'adBackReset', 'adBackSkip', 'adBackRotate', 'adBackCrop', 'adBackBc', 'adBackBright', 'adBackBrightVal', 'adBackContr', 'adBackContrVal', 'adBackBcReset', 'adBackStrip', 'adBackStripLbl', 'adBackImg');
+    const adFront = adMakeSide('adFront','adFrontCanvas','adFrontWrap','adFrontLabel','adFrontFile','adFrontInstr','adFrontPts','adf','adFrontBadge','adFrontReset','adFrontSkip','adFrontCrop','adFrontBc','adFrontBright','adFrontBrightVal','adFrontContr','adFrontContrVal','adFrontBcReset','adFrontStrip','adFrontStripLbl','adFrontImg');
+    const adBack  = adMakeSide('adBack', 'adBackCanvas', 'adBackWrap', 'adBackLabel', 'adBackFile', 'adBackInstr', 'adBackPts', 'adb','adBackBadge', 'adBackReset', 'adBackSkip', 'adBackCrop', 'adBackBc', 'adBackBright', 'adBackBrightVal', 'adBackContr', 'adBackContrVal', 'adBackBcReset', 'adBackStrip', 'adBackStripLbl', 'adBackImg');
 
     let adPdfBlob = null;
-
-    function rotateCanvasClockwise(source) {
-      const rotated = document.createElement('canvas');
-      rotated.width = source.height;
-      rotated.height = source.width;
-      const ctx = rotated.getContext('2d');
-      ctx.translate(rotated.width, 0);
-      ctx.rotate(Math.PI / 2);
-      ctx.drawImage(source, 0, 0);
-      return rotated;
-    }
-
-    function canvasToImage(canvas) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to rotate image'));
-        img.src = canvas.toDataURL('image/png');
-      });
-    }
 
     function adRenderImg(side) {
       const wrap = document.getElementById(side.wrapId);
@@ -794,13 +837,21 @@
       const down = e => {
         if (!side.originalImage) return; e.preventDefault();
         const pos = adGetPos(e, c); const near = adFindNearest(side.points, pos);
+        showMagnifier(c, pos);
         if (near !== -1) { side.draggingIdx = near; return; }
         if (side.points.length < 4) { side.points.push(pos); adRedraw(side); adUpdateChips(side); if (side.points.length===4) scToast('4 corners set — press Crop','ok'); }
       };
-      const move = e => { if (side.draggingIdx===-1) return; e.preventDefault(); side.points[side.draggingIdx]=adGetPos(e,c); adRedraw(side); adUpdateChips(side); };
-      const up   = () => { side.draggingIdx=-1; adUpdateChips(side); };
+      const move = e => {
+        const pos = adGetPos(e, c);
+        showMagnifier(c, pos);
+        if (side.draggingIdx===-1) return;
+        e.preventDefault();
+        side.points[side.draggingIdx]=pos; adRedraw(side); adUpdateChips(side);
+      };
+      const up   = () => { side.draggingIdx=-1; adUpdateChips(side); hideMagnifier(); };
       c.addEventListener('mousedown', down); c.addEventListener('mousemove', move); c.addEventListener('mouseup', up);
       c.addEventListener('touchstart', down, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); c.addEventListener('touchend', up);
+      c.addEventListener('mouseleave', hideMagnifier);
     }
     adSetupCanvas(adFront); adSetupCanvas(adBack);
 
@@ -820,7 +871,6 @@
             document.getElementById(side.instrId).classList.add('visible');
             document.getElementById(side.resetId).disabled = false;
             document.getElementById(side.skipId).disabled = false;
-            document.getElementById(side.rotateId).disabled = false;
             document.getElementById(side.cropId).disabled = true;
             document.getElementById(side.stripId).classList.remove('visible');
             document.getElementById(side.bcId).classList.remove('visible');
@@ -842,7 +892,6 @@
       if (side.originalImage) adRedraw(side);
       adUpdateChips(side);
       document.getElementById(side.skipId).disabled = !side.originalImage;
-      document.getElementById(side.rotateId).disabled = !side.originalImage;
       document.getElementById(side.stripId).classList.remove('visible');
       document.getElementById(side.bcId).classList.remove('visible');
       document.getElementById(side.bSlId).value = 100; document.getElementById(side.cSlId).value = 100;
@@ -852,33 +901,6 @@
     }
     document.getElementById('adFrontReset').addEventListener('click', () => adResetSide(adFront));
     document.getElementById('adBackReset').addEventListener('click',  () => adResetSide(adBack));
-
-    async function adRotateSide(side) {
-      if (!side.originalImage) { scToast('Upload first','warn'); return; }
-      if (side._rawCanvas) {
-        side._rawCanvas = rotateCanvasClockwise(side._rawCanvas);
-        const label = side.prefix === 'adFront' ? 'Front Rotated' : 'Back Rotated';
-        adFinaliseCrop(side, side._rawCanvas, label);
-      } else {
-        const sourceCanvas = document.createElement('canvas');
-        sourceCanvas.width = side.originalW;
-        sourceCanvas.height = side.originalH;
-        sourceCanvas.getContext('2d').drawImage(side.originalImage, 0, 0);
-        const rotatedCanvas = rotateCanvasClockwise(sourceCanvas);
-        side.originalImage = await canvasToImage(rotatedCanvas);
-        side.originalW = rotatedCanvas.width;
-        side.originalH = rotatedCanvas.height;
-        side.points = [];
-        adRenderImg(side);
-        adUpdateChips(side);
-        document.getElementById(side.cropId).disabled = true;
-      }
-      adUpdateGenerateBtn();
-      adUpdateSteps();
-      scToast('Rotated 90°','ok');
-    }
-    document.getElementById('adFrontRotate').addEventListener('click', () => { adRotateSide(adFront).catch(err => scToast(err.message,'err')); });
-    document.getElementById('adBackRotate').addEventListener('click',  () => { adRotateSide(adBack).catch(err => scToast(err.message,'err')); });
 
     function adBakeAdjusted(side) {
       const src = side._rawCanvas;
@@ -1130,12 +1152,13 @@
       pn.points.forEach((p,i)=>{const d=Math.hypot(p.x-pos.x,p.y-pos.y);if(d<DRAG_R&&d<minD){minD=d;idx=i;}});
       return idx;
     }
-    pn.canvas.addEventListener('mousedown',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set — press Crop','ok');}});
-    pn.canvas.addEventListener('mousemove',e=>{if(pn.draggingIdx===-1)return;e.preventDefault();pn.points[pn.draggingIdx]=pnGetPos(e);pnRedraw();pnUpdateChips();});
-    pn.canvas.addEventListener('mouseup',()=>{pn.draggingIdx=-1;pnUpdateChips();});
-    pn.canvas.addEventListener('touchstart',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set','ok');}},{passive:false});
-    pn.canvas.addEventListener('touchmove',e=>{if(pn.draggingIdx===-1)return;e.preventDefault();pn.points[pn.draggingIdx]=pnGetPos(e);pnRedraw();pnUpdateChips();},{passive:false});
-    pn.canvas.addEventListener('touchend',()=>{pn.draggingIdx=-1;pnUpdateChips();});
+    pn.canvas.addEventListener('mousedown',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);showMagnifier(pn.canvas,pos);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set — press Crop','ok');}});
+    pn.canvas.addEventListener('mousemove',e=>{const pos=pnGetPos(e);showMagnifier(pn.canvas,pos);if(pn.draggingIdx===-1)return;e.preventDefault();pn.points[pn.draggingIdx]=pos;pnRedraw();pnUpdateChips();});
+    pn.canvas.addEventListener('mouseup',()=>{pn.draggingIdx=-1;pnUpdateChips();hideMagnifier();});
+    pn.canvas.addEventListener('touchstart',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);showMagnifier(pn.canvas,pos);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set','ok');}},{passive:false});
+    pn.canvas.addEventListener('touchmove',e=>{const pos=pnGetPos(e);showMagnifier(pn.canvas,pos);if(pn.draggingIdx===-1)return;e.preventDefault();pn.points[pn.draggingIdx]=pos;pnRedraw();pnUpdateChips();},{passive:false});
+    pn.canvas.addEventListener('touchend',()=>{pn.draggingIdx=-1;pnUpdateChips();hideMagnifier();});
+    pn.canvas.addEventListener('mouseleave',hideMagnifier);
 
     document.getElementById('pnFileInput').addEventListener('change',e=>{
       const file=e.target.files[0];if(!file)return;
@@ -1147,7 +1170,7 @@
         document.getElementById('pnUploadLabel').style.display='none';
         pn.canvas.style.display='block';
         document.getElementById('pnInstructions').classList.add('visible');
-        document.getElementById('pnReset').disabled=false;document.getElementById('pnSkip').disabled=false;document.getElementById('pnRotate').disabled=false;document.getElementById('pnCrop').disabled=true;
+        document.getElementById('pnReset').disabled=false;document.getElementById('pnSkip').disabled=false;document.getElementById('pnCrop').disabled=true;
         document.getElementById('pnStrip').classList.remove('visible');document.getElementById('pnBc').classList.remove('visible');
         document.getElementById('pnBright').value=100;document.getElementById('pnContr').value=100;
         document.getElementById('pnBrightVal').textContent=100;document.getElementById('pnContrVal').textContent=100;
@@ -1162,7 +1185,7 @@
       document.getElementById('pnStrip').classList.remove('visible');document.getElementById('pnBc').classList.remove('visible');
       document.getElementById('pnBright').value=100;document.getElementById('pnContr').value=100;
       document.getElementById('pnBrightVal').textContent=100;document.getElementById('pnContrVal').textContent=100;
-      document.getElementById('pnSkip').disabled=!pn.originalImage;document.getElementById('pnRotate').disabled=!pn.originalImage;
+      document.getElementById('pnSkip').disabled=!pn.originalImage;
       pnUpdateBadge('UPLOADED','');pnUpdateGenerateBtn();pnUpdateSteps();scToast('Reset','warn');
     });
 
@@ -1183,23 +1206,6 @@
       if(!pn.originalImage){scToast('Upload first','warn');return;}
       const tmp=document.createElement('canvas');tmp.width=pn.originalW;tmp.height=pn.originalH;
       tmp.getContext('2d').drawImage(pn.originalImage,0,0);pnFinaliseCrop(tmp,'Full Image Used');
-    });
-    document.getElementById('pnRotate').addEventListener('click',()=>{
-      if(!pn.originalImage){scToast('Upload first','warn');return;}
-      if(pn._rawCanvas){
-        pn._rawCanvas=rotateCanvasClockwise(pn._rawCanvas);
-        pnFinaliseCrop(pn._rawCanvas,'PAN Card Rotated');
-      }else{
-        const sourceCanvas=document.createElement('canvas');
-        sourceCanvas.width=pn.originalW;sourceCanvas.height=pn.originalH;
-        sourceCanvas.getContext('2d').drawImage(pn.originalImage,0,0);
-        const rotatedCanvas=rotateCanvasClockwise(sourceCanvas);
-        canvasToImage(rotatedCanvas).then(img=>{
-          pn.originalImage=img;pn.originalW=rotatedCanvas.width;pn.originalH=rotatedCanvas.height;
-          pn.points=[];pnRenderImg();pnUpdateChips();document.getElementById('pnCrop').disabled=true;
-          pnUpdateGenerateBtn();pnUpdateSteps();scToast('Rotated 90°','ok');
-        }).catch(err=>scToast(err.message,'err'));
-      }
     });
     document.getElementById('pnCrop').addEventListener('click', async ()=>{
       if(pn.points.length<4){scToast('Need 4 corners','warn');return;}
@@ -1304,11 +1310,14 @@
     // PHOTO MODE (unchanged)
     // ════════════════════════════════════════════════════════════════
     let photos=[], nextId=0, activeCropper=null, pendingCropId=null;
+    let previewPhotoId=null, previewTransparentUrl=null, previewSourceKey=null, previewRenderToken=0;
     const dropZone=document.getElementById('dropZone'),imageInput=document.getElementById('imageInput');
     const photoList=document.getElementById('photoList'),addMoreWrapper=document.getElementById('addMoreWrapper');
     const generateBtn=document.getElementById('generateBtn'),downloadPhotoBtn=document.getElementById('downloadPhotoBtn'),downloadBtn=document.getElementById('downloadBtn');
     const pdfPreview=document.getElementById('pdfPreview'),loading=document.getElementById('loading');
     const cropperModal=document.getElementById('cropperModal'),cropModalImage=document.getElementById('cropModalImage');
+    const photoPreviewSection=document.getElementById('photoPreviewSection'),photoPreviewCanvas=document.getElementById('photoPreviewCanvas');
+    const photoPreviewStatus=document.getElementById('photoPreviewStatus');
 
     function fileToDataURL(file){
       return new Promise((resolve,reject)=>{
@@ -1318,57 +1327,113 @@
         reader.readAsDataURL(file);
       });
     }
-    function blobToFile(blob,name){
-      return new File([blob],name,{type:blob.type||'image/png'});
+    function getPreviewSourceFile(photo){
+      return photo ? (photo.croppedFile || photo.originalFile) : null;
     }
-    async function rotatePhotoFile(file){
-      const dataUrl=await fileToDataURL(file);
-      const img=await adLoadImg(dataUrl);
-      const canvas=document.createElement('canvas');
-      canvas.width=img.naturalHeight||img.height;
-      canvas.height=img.naturalWidth||img.width;
-      const ctx=canvas.getContext('2d');
-      ctx.translate(canvas.width,0);
-      ctx.rotate(Math.PI/2);
-      ctx.drawImage(img,0,0);
-      const mimeType=(file.type&&file.type.startsWith('image/'))?file.type:'image/png';
-      return new Promise((resolve,reject)=>{
-        canvas.toBlob(blob=>{
-          if(!blob){reject(new Error('Could not rotate image'));return;}
-          resolve(blobToFile(blob,file.name));
-        },mimeType,mimeType==='image/jpeg'?0.95:undefined);
-      });
+    function getPreviewSourceKey(photo){
+      const file=getPreviewSourceFile(photo);
+      return file ? `${photo.id}:${file.name}:${file.size}:${file.lastModified||0}` : '';
     }
-    async function rotatePhoto(id){
-      const photo=photos.find(p=>p.id===id);
-      if(!photo)return;
-      const targetKey=photo.croppedFile?'croppedFile':'originalFile';
-      const rotatedFile=await rotatePhotoFile(photo[targetKey]);
-      photo[targetKey]=rotatedFile;
-      if(photo.previewUrl&&photo.previewUrl.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl);
-      photo.previewUrl=URL.createObjectURL(rotatedFile);
-      renderPhotoList();
-      showNotification("Photo rotated.",false);
+    function setPreviewStatus(text,color='text-gray-400'){
+      photoPreviewStatus.className=`text-xs ${color}`;
+      photoPreviewStatus.textContent=text;
+    }
+    async function drawPreviewCanvas(){
+      if(!previewTransparentUrl){return;}
+      const transparentImg=await adLoadImg(previewTransparentUrl);
+      const maxWidth=360;
+      const scale=Math.min(maxWidth/(transparentImg.naturalWidth||transparentImg.width),1);
+      const width=Math.max(1,Math.round((transparentImg.naturalWidth||transparentImg.width)*scale));
+      const height=Math.max(1,Math.round((transparentImg.naturalHeight||transparentImg.height)*scale));
+      photoPreviewCanvas.width=width;
+      photoPreviewCanvas.height=height;
+      const ctx=photoPreviewCanvas.getContext('2d');
+      ctx.fillStyle=document.getElementById('bgColorValue').value;
+      ctx.fillRect(0,0,width,height);
+      ctx.drawImage(transparentImg,0,0,width,height);
+      photoPreviewSection.classList.remove('hidden');
+    }
+    async function refreshPhotoPreview(forceReprocess=false, preferredId=null){
+      if(!photos.length){
+        previewPhotoId=null;
+        previewTransparentUrl=null;
+        previewSourceKey=null;
+        photoPreviewSection.classList.add('hidden');
+        return;
+      }
+      if(preferredId!==null){ previewPhotoId=preferredId; }
+      if(previewPhotoId===null || !photos.some(photo=>photo.id===previewPhotoId)){ previewPhotoId=photos[0].id; }
+      const photo=photos.find(item=>item.id===previewPhotoId) || photos[0];
+      const sourceFile=getPreviewSourceFile(photo);
+      if(!sourceFile){
+        photoPreviewSection.classList.add('hidden');
+        return;
+      }
+
+      const sourceKey=getPreviewSourceKey(photo);
+      if(!forceReprocess && previewTransparentUrl && previewSourceKey===sourceKey){
+        await drawPreviewCanvas();
+        setPreviewStatus('Live preview ready','text-green-400');
+        return;
+      }
+
+      const currentToken=++previewRenderToken;
+      setPreviewStatus('Removing background for preview...','text-blue-400');
+      photoPreviewSection.classList.remove('hidden');
+
+      const formData=new FormData();
+      formData.append('image',sourceFile);
+
+      const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:formData});
+      if(currentToken!==previewRenderToken){ return; }
+      if(!response.ok){
+        if(response.status===429){ throw new Error('Preview quota exceeded'); }
+        throw new Error('Preview failed');
+      }
+
+      const blob=await response.blob();
+      if(previewTransparentUrl && previewTransparentUrl.startsWith('blob:')) URL.revokeObjectURL(previewTransparentUrl);
+      previewTransparentUrl=URL.createObjectURL(blob);
+      previewSourceKey=sourceKey;
+      await drawPreviewCanvas();
+      setPreviewStatus('Live preview ready','text-green-400');
+    }
+    async function removePhotoBackground(file){
+      const fd=new FormData();
+      fd.append('image',file);
+      const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:fd});
+      if(response.status===429) throw new Error('Quota Exceeded. Try again later.');
+      if(!response.ok) throw new Error('Background removal failed. Try again.');
+      return response.blob();
     }
     async function downloadPhotoAsJpeg(){
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       const photo=photos[0];
       const photoNumber=1;
       const sourceFile=photo.croppedFile||photo.originalFile;
-      const sourceDataUrl=photo.croppedFile?photo.previewUrl:await fileToDataURL(sourceFile);
-      const img=await adLoadImg(sourceDataUrl);
-      const canvas=document.createElement('canvas');
-      canvas.width=img.naturalWidth||img.width;
-      canvas.height=img.naturalHeight||img.height;
-      const ctx=canvas.getContext('2d');
-      ctx.fillStyle='#fff';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      canvas.toBlob(blob=>{
-        if(!blob){showNotification("Could not create JPEG. Try again.");return;}
-        downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
-        showNotification("JPEG downloaded!",false);
-      },'image/jpeg',0.95);
+      downloadPhotoBtn.disabled=true;
+      downloadPhotoBtn.textContent='Removing BG...';
+      try{
+        const removedBgBlob=await removePhotoBackground(sourceFile);
+        const processedUrl=URL.createObjectURL(removedBgBlob);
+        const img=await adLoadImg(processedUrl);
+        const canvas=document.createElement('canvas');
+        canvas.width=img.naturalWidth||img.width;
+        canvas.height=img.naturalHeight||img.height;
+        const ctx=canvas.getContext('2d');
+        ctx.fillStyle=document.getElementById('bgColorValue').value||'#FFFFFF';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        canvas.toBlob(blob=>{
+          URL.revokeObjectURL(processedUrl);
+          if(!blob){showNotification("Could not create JPEG. Try again.");return;}
+          downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
+          showNotification("Background removed and photo downloaded!",false);
+        },'image/jpeg',0.95);
+      }finally{
+        downloadPhotoBtn.disabled=false;
+        downloadPhotoBtn.textContent='Download Photo';
+      }
     }
 
     function renderPhotoList(){
@@ -1376,28 +1441,34 @@
       photos.forEach(photo=>{
         const card=document.createElement('div');
         card.className='photo-card flex items-center gap-4 bg-gray-900/60 border border-gray-700 rounded-xl p-4';
-        card.innerHTML=`<img src="${photo.previewUrl}" class="w-16 h-20 object-cover rounded-lg border border-gray-600 flex-shrink-0"/><div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-200 truncate">${photo.originalFile.name}</p><p class="text-xs text-gray-500 mt-0.5">${photo.croppedFile?'Cropped':'Not cropped'}</p></div><div class="flex flex-col items-center gap-1"><label class="text-xs text-gray-400">Copies</label><input type="number" value="${photo.copies}" min="1" max="54" class="bg-gray-700 border border-gray-600 rounded-lg w-16 p-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" data-id="${photo.id}"/></div><div class="flex flex-col gap-2"><button class="rotate-photo-btn text-xs bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Rotate</button><button class="crop-btn text-xs bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Crop</button><button class="remove-btn text-xs bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Remove</button></div>`;
+        card.innerHTML=`<img src="${photo.previewUrl}" class="w-16 h-20 object-cover rounded-lg border border-gray-600 flex-shrink-0"/><div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-200 truncate">${photo.originalFile.name}</p><p class="text-xs text-gray-500 mt-0.5">${photo.croppedFile?'✅ Cropped':'⚠️ Not cropped'}</p></div><div class="flex flex-col items-center gap-1"><label class="text-xs text-gray-400">Copies</label><input type="number" value="${photo.copies}" min="1" max="54" class="bg-gray-700 border border-gray-600 rounded-lg w-16 p-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" data-id="${photo.id}"/></div><div class="flex flex-col gap-2"><button class="preview-btn text-xs bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Preview</button><button class="crop-btn text-xs bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 border border-blue-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Crop</button><button class="remove-btn text-xs bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg" data-id="${photo.id}">Remove</button></div>`;
         photoList.appendChild(card);
       });
       photoList.querySelectorAll('input[type=number]').forEach(input=>input.addEventListener('change',e=>{const p=photos.find(p=>p.id===parseInt(e.target.dataset.id));if(p)p.copies=Math.max(1,parseInt(e.target.value)||1);}));
-      photoList.querySelectorAll('.rotate-photo-btn').forEach(btn=>btn.addEventListener('click',e=>{rotatePhoto(parseInt(e.target.dataset.id)).catch(()=>showNotification("Could not rotate photo. Try again."));}));
+      photoList.querySelectorAll('.preview-btn').forEach(btn=>btn.addEventListener('click',e=>{refreshPhotoPreview(false,parseInt(e.target.dataset.id)).catch(()=>{setPreviewStatus('Preview failed','text-red-400');showNotification("Preview failed. Try again.");});}));
       photoList.querySelectorAll('.crop-btn').forEach(btn=>btn.addEventListener('click',e=>openCropper(parseInt(e.target.dataset.id))));
-      photoList.querySelectorAll('.remove-btn').forEach(btn=>btn.addEventListener('click',e=>{photos=photos.filter(p=>p.id!==parseInt(e.target.dataset.id));renderPhotoList();if(photos.length===0)addMoreWrapper.classList.add('hidden');}));
+      photoList.querySelectorAll('.remove-btn').forEach(btn=>btn.addEventListener('click',e=>{const removedId=parseInt(e.target.dataset.id);photos=photos.filter(p=>p.id!==removedId);if(previewPhotoId===removedId){previewPhotoId=photos.length?photos[0].id:null;previewTransparentUrl=null;previewSourceKey=null;}renderPhotoList();if(photos.length===0)addMoreWrapper.classList.add('hidden');refreshPhotoPreview(false).catch(()=>{});}));
       addMoreWrapper.classList.toggle('hidden',photos.length===0);
     }
-    function addFiles(files){
+    async function addFiles(files){
       const valid=['image/jpeg','image/jpg','image/png','image/webp'];let added=0;
-      Array.from(files).forEach(file=>{if(!valid.includes(file.type))return;photos.push({id:nextId++,originalFile:file,croppedFile:null,previewUrl:URL.createObjectURL(file),copies:6});added++;});
-      if(!added)showNotification("Please upload valid image files.");renderPhotoList();
+      for(const file of Array.from(files)){
+        if(!valid.includes(file.type)) continue;
+        photos.push({id:nextId++,originalFile:file,croppedFile:null,previewUrl:URL.createObjectURL(file),copies:6});
+        added++;
+      }
+      if(!added)showNotification("Please upload valid image files.");
+      renderPhotoList();
+      if(added){ refreshPhotoPreview(true,photos[photos.length-1].id).catch(()=>setPreviewStatus('Preview failed','text-red-400')); }
     }
     dropZone.addEventListener('click',()=>imageInput.click());
     dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('border-blue-400');});
     dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('border-blue-400'));
-    dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('border-blue-400');addFiles(e.dataTransfer.files);});
-    imageInput.addEventListener('change',()=>{addFiles(imageInput.files);imageInput.value='';});
+    dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('border-blue-400');addFiles(e.dataTransfer.files).catch(()=>showNotification("Could not prepare images. Try again."));});
+    imageInput.addEventListener('change',()=>{addFiles(imageInput.files).catch(()=>showNotification("Could not prepare images. Try again."));imageInput.value='';});
     document.getElementById('addMoreBtn').addEventListener('click',()=>imageInput.click());
     function openCropper(id){const photo=photos.find(p=>p.id===id);if(!photo)return;pendingCropId=id;cropModalImage.src=photo.previewUrl;cropperModal.classList.remove('hidden');if(activeCropper)activeCropper.destroy();activeCropper=new Cropper(cropModalImage,{aspectRatio:384/472,viewMode:1,dragMode:'move',autoCropArea:1});}
-    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/png'});photo.previewUrl=URL.createObjectURL(blob);activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);},'image/png');});
+    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/jpeg'});if(photo.previewUrl&&photo.previewUrl.startsWith('blob:'))URL.revokeObjectURL(photo.previewUrl);photo.previewUrl=URL.createObjectURL(photo.croppedFile);const previewId=pendingCropId;activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();refreshPhotoPreview(true,previewId).catch(()=>setPreviewStatus('Preview failed','text-red-400'));showNotification("Photo cropped successfully.",false);},'image/jpeg',0.95);});
     document.getElementById('cancelCropBtn').addEventListener('click',()=>{if(activeCropper){activeCropper.destroy();activeCropper=null;}pendingCropId=null;cropperModal.classList.add('hidden');});
     document.getElementById('toggleAdvanced').addEventListener('click',function(){const el=document.getElementById('advancedOptions');const visible=el.style.display==='block';el.style.display=visible?'none':'block';this.textContent=visible?'Advanced Options':'Hide Advanced Options';});
     downloadPhotoBtn.addEventListener('click',()=>{downloadPhotoAsJpeg().catch(()=>showNotification("Could not download JPEG. Try again."));});
@@ -1405,13 +1476,13 @@
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       const fd=new FormData();
       photos.forEach((p,i)=>{fd.append(`image_${i}`,p.croppedFile||p.originalFile);fd.append(`copies_${i}`,p.copies);});
-      fd.append('width',document.getElementById('width').value);fd.append('height',document.getElementById('height').value);fd.append('spacing',document.getElementById('spacing').value);fd.append('border',document.getElementById('border').value);fd.append('bg_color',document.getElementById('bgColorValue').value);
+      fd.append('width','384');fd.append('height','480');fd.append('spacing','15');fd.append('border',document.getElementById('border').value);fd.append('bg_color',document.getElementById('bgColorValue').value);
       loading.classList.remove('hidden');generateBtn.disabled=true;downloadBtn.classList.add('hidden');pdfPreview.classList.add('hidden');
       fetch((window.BACKEND_URL||'')+'/process',{method:'POST',body:fd}).then(async r=>{if(r.status===429){showNotification("Quota Exceeded. Try again later.");return null;}if(r.status===410){showNotification("Cannot detect face in one of the images.");return null;}if(!r.ok)throw new Error();return r.blob();}).then(blob=>{if(!blob)return;const url=URL.createObjectURL(blob);pdfPreview.classList.remove('hidden');pdfPreview.src=url;downloadBtn.classList.remove('hidden');downloadBtn.onclick=()=>{const a=document.createElement('a');a.href=url;a.download='passport-sheet.pdf';a.click();};showNotification("PDF generated!",false);}).catch(()=>showNotification("Processing failed. Try again.")).finally(()=>{loading.classList.add('hidden');generateBtn.disabled=false;});
     });
-    function setSelectedColor(hex){document.getElementById('bgColorValue').value=hex;document.getElementById('selectedColorPreview').style.background=hex;document.getElementById('customBgColor').value=hex;document.querySelectorAll('.bg-color-btn').forEach(btn=>{const m=btn.dataset.color===hex;btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);});}
+    function setSelectedColor(hex){document.getElementById('bgColorValue').value=hex;document.getElementById('selectedColorPreview').style.background=hex;document.getElementById('customBgColor').value=hex;document.querySelectorAll('.bg-color-btn').forEach(btn=>{const m=btn.dataset.color===hex;btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);});drawPreviewCanvas().catch(()=>{});}
     document.querySelectorAll('.bg-color-btn').forEach(btn=>btn.addEventListener('click',()=>setSelectedColor(btn.dataset.color)));
-    document.getElementById('customBgColor').addEventListener('input',e=>{document.querySelectorAll('.bg-color-btn').forEach(b=>{b.classList.remove('ring-blue-400','border-blue-400');b.classList.add('ring-transparent','border-transparent');});document.getElementById('bgColorValue').value=e.target.value;document.getElementById('selectedColorPreview').style.background=e.target.value;});
+    document.getElementById('customBgColor').addEventListener('input',e=>{document.querySelectorAll('.bg-color-btn').forEach(b=>{b.classList.remove('ring-blue-400','border-blue-400');b.classList.add('ring-transparent','border-transparent');});document.getElementById('bgColorValue').value=e.target.value;document.getElementById('selectedColorPreview').style.background=e.target.value;drawPreviewCanvas().catch(()=>{});});
     setSelectedColor('#FFFFFF');
 
     // ─── Feedback ────────────────────────────────────────────────────
