@@ -115,7 +115,7 @@ def process():
     margin_x = 40
     margin_y = 20
     horizontal_gap = 15
-    vertical_gap = 15
+    vertical_gap = 12
     a4_w, a4_h = 2480, 3508
     photos_per_row = 6
     available_width = a4_w - (2 * margin_x) - ((photos_per_row - 1) * horizontal_gap)
