@@ -1342,13 +1342,14 @@
       return canvas;
     }
     // Downscale (high quality) to ~print size, enhance if enabled, encode.
-    const SCAN_MAX_PX = { std: { ad: 1300, pn: 1300, ct: 3508 }, high: { ad: 2600, pn: 2600, ct: 7016 } };
+    const SCAN_MAX_PX = { std: { ad: 1300, pn: 1300, ct: 3508 }, high: { ad: Infinity, pn: Infinity, ct: Infinity } };
     const SCAN_MAX_AREA = { ad: 8e6, pn: 8e6, ct: 12e6 };
     const isEnhanceOn = key => { const el = document.querySelector(`.sc-enhance[data-sheet="${key}"]`); return !el || el.checked; };
     function finishScan(canvas, key) {
       let out = canvas;
       const max = SCAN_MAX_PX[printQuality][key], long = Math.max(canvas.width, canvas.height);
-      const s = Math.min(1, max / long, Math.sqrt(SCAN_MAX_AREA[key] / (canvas.width * canvas.height)));
+      const area = printQuality === 'high' ? 16e6 : SCAN_MAX_AREA[key];
+      const s = Math.min(1, max / long, Math.sqrt(area / (canvas.width * canvas.height)));
       if (s < 1) {
         out = document.createElement('canvas');
         out.width = Math.round(canvas.width * s); out.height = Math.round(canvas.height * s);
@@ -1911,12 +1912,15 @@
       const url=URL.createObjectURL(file);
       try{
         const img=await adLoadImg(url);const w=img.naturalWidth,h=img.naturalHeight;
-        const sc=printQuality==='high'?Math.min(1,3000/Math.max(w,h)):Math.min(1,Math.sqrt(240000/(w*h)));
-        if(sc>=0.999) return file;
+        if(printQuality==='high'&&file.size<=21e6&&w*h<=50e6) return file; // original, byte-for-byte
+        const sc=printQuality==='high'?Math.min(1,Math.sqrt(48e6/(w*h))):Math.min(1,Math.sqrt(240000/(w*h)));
+        if(sc>=0.999&&printQuality!=='high') return file;
         const c=mkCanvas(Math.max(1,Math.round(w*sc)),Math.max(1,Math.round(h*sc))),x=c.getContext('2d');
         x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(img,0,0,c.width,c.height);
         const fmt=printQuality==='high'?'jpg':'png';
-        return new File([await canvasToBlob(c,fmt)],file.name.replace(/\.[^.]+$/,'')+'.'+fmt,{type:FMT_MIME[fmt]});
+        let out=await canvasToBlob(c,fmt);
+        for(let q=0.95;fmt==='jpg'&&out.size>21e6&&q>0.6;q-=0.07) out=await new Promise(r=>c.toBlob(r,'image/jpeg',q));
+        return new File([out],file.name.replace(/\.[^.]+$/,'')+'.'+fmt,{type:FMT_MIME[fmt]});
       }finally{URL.revokeObjectURL(url);}
     }
     // One remove.bg call per photo version and quality; reused for preview, sheet and every download format.
@@ -2016,7 +2020,21 @@
     imageInput.addEventListener('change',()=>{addFiles(imageInput.files);imageInput.value='';});
     document.getElementById('addMoreBtn').addEventListener('click',()=>imageInput.click());
     function openCropper(id){const photo=photos.find(p=>p.id===id);if(!photo)return;pendingCropId=id;cropModalImage.src=photo.previewUrl;cropperModal.classList.remove('hidden');if(activeCropper)activeCropper.destroy();activeCropper=new Cropper(cropModalImage,{aspectRatio:384/472,viewMode:1,dragMode:'move',autoCropArea:1});}
-    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;(()=>{const d=activeCropper.getData(true);const H=Math.max(480,Math.min(1440,Math.round(d.height)));return activeCropper.getCroppedCanvas({width:Math.round(H*384/472),height:H,imageSmoothingEnabled:true,imageSmoothingQuality:'high'});})().toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/png'});photo.previewUrl=URL.createObjectURL(blob);activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);},'image/png');});
+    document.getElementById('confirmCropBtn').addEventListener('click',async()=>{
+      if(!activeCropper||pendingCropId===null)return;
+      // keep the crop at the photo's original resolution (capped only by remove.bg's 50 MP limit)
+      const d=activeCropper.getData(true);
+      let H=Math.max(480,Math.round(d.height)),W=Math.round(H*384/472);
+      const lim=Math.sqrt(48e6/(W*H)); if(lim<1){W=Math.round(W*lim);H=Math.round(H*lim);}
+      const canvas=activeCropper.getCroppedCanvas({width:W,height:H,imageSmoothingEnabled:true,imageSmoothingQuality:'high'});
+      let blob=await canvasToBlob(canvas,'png'),type='image/png';
+      if(blob.size>20e6){blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.98));type='image/jpeg';}
+      const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;
+      photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type});
+      photo.previewUrl=URL.createObjectURL(blob);
+      activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');
+      renderPhotoList();showNotification("Photo cropped successfully.",false);
+    });
     document.getElementById('cancelCropBtn').addEventListener('click',()=>{if(activeCropper){activeCropper.destroy();activeCropper=null;}pendingCropId=null;cropperModal.classList.add('hidden');});
     document.getElementById('toggleAdvanced').addEventListener('click',function(){const el=document.getElementById('advancedOptions');const visible=el.style.display==='block';el.style.display=visible?'none':'block';this.textContent=visible?'Advanced Options':'Hide Advanced Options';});
     downloadPhotoBtn.addEventListener('click',()=>{downloadSinglePhoto().catch(e=>showNotification(e&&e.message?e.message:"Could not download photo. Try again."));});
