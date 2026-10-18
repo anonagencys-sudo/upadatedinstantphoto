@@ -869,6 +869,11 @@
       x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
     }
     function cw(c) { return c._cssW || c.width; }
+    // Tell the user the real photo size; warn when it's too small to print sharply (often a WhatsApp/screenshot copy).
+    function loadedToast(w, h) {
+      if (Math.max(w, h) < 1600) scToast(`Low-resolution photo (${w}×${h}) — use the original camera photo, not a WhatsApp copy, for a sharp print`, 'warn');
+      else scToast(`Image loaded (${w}×${h}) — click 4 corners`, 'ok');
+    }
     function ch(c) { return c._cssH || c.height; }
     const PT_LABELS = ['TL','TR','BR','BL'];
     const DRAG_R = 22;
@@ -1012,7 +1017,7 @@
             document.getElementById(side.bSlId).value = 100; document.getElementById(side.cSlId).value = 100;
             document.getElementById(side.bValId).textContent = 100; document.getElementById(side.cValId).textContent = 100;
             adUpdateBadge(side, 'UPLOADING', ''); adUpdateChips(side); adUpdateGenerateBtn(); adUpdateSteps();
-            scToast('Image loaded — click 4 corners', 'ok');
+            loadedToast(side.originalW, side.originalH);
           };
           img.src = ev.target.result;
         };
@@ -1539,7 +1544,7 @@
         document.getElementById('pnBright').value=100;document.getElementById('pnContr').value=100;
         document.getElementById('pnBrightVal').textContent=100;document.getElementById('pnContrVal').textContent=100;
         pnUpdateBadge('UPLOADED','');pnUpdateChips();pnUpdateGenerateBtn();pnUpdateSteps();
-        scToast('Image loaded — click 4 corners','ok');
+        loadedToast(pn.originalW, pn.originalH);
       };img.src=ev.target.result;};reader.readAsDataURL(file);
     });
 
@@ -1780,7 +1785,7 @@
         document.getElementById('ctBright').value=100;document.getElementById('ctContr').value=100;
         document.getElementById('ctBrightVal').textContent=100;document.getElementById('ctContrVal').textContent=100;
         ctUpdateBadge('UPLOADED','');ctUpdateChips();ctUpdateGenerateBtn();ctUpdateSteps();
-        scToast('Image loaded - click 4 corners','ok');
+        loadedToast(ct.originalW, ct.originalH);
       };img.src=ev.target.result;};reader.readAsDataURL(file);
     });
 
@@ -2400,12 +2405,15 @@
         const near = s.points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < DRAG_R);
         if (!(e.buttons || e.pointerType === 'touch' || s.points.length < 4 || near || s.draggingIdx !== -1)) { t.redraw(); return hide(); }
         // source window in original-image pixels (full resolution → sharp detail)
-        // 150 css px loupe at Z× zoom shows (150/Z) css px of the canvas → canvas px (×sx) → original px (÷scale)
-        const half = (150 / Z) * sx / s.scale / 2, cx = pos.x / s.scale, cy = pos.y / s.scale;
+        // Adaptive zoom: magnify up to 5×, but never stretch the photo's real pixels more than ~1.5×
+        // (a fixed 5× smears lower-resolution phone/WhatsApp photos). opc = original px per on-screen px.
+        const opc = sx / s.scale, zoom = Math.max(2, Math.min(Z, 0.75 * opc));
+        // 150 css px loupe at zoom× shows (150/zoom) css px of the canvas → canvas px (×sx) → original px (÷scale)
+        const half = (150 / zoom) * sx / s.scale / 2, cx = pos.x / s.scale, cy = pos.y / s.scale;
         lx.save(); lx.clearRect(0, 0, L, L);
         lx.beginPath(); lx.arc(L / 2, L / 2, L / 2, 0, Math.PI * 2); lx.clip();
         lx.fillStyle = '#000'; lx.fillRect(0, 0, L, L);
-        lx.imageSmoothingQuality = 'high';
+        lx.imageSmoothingEnabled = true; lx.imageSmoothingQuality = 'high';
         lx.drawImage(s.originalImage, cx - half, cy - half, half * 2, half * 2, 0, 0, L, L);
         // existing corners + outline, mapped into the loupe
         const pts = s.points.map(p => ({ x: L / 2 + (p.x - pos.x) / s.scale * (L / (half * 2)), y: L / 2 + (p.y - pos.y) / s.scale * (L / (half * 2)) }));
