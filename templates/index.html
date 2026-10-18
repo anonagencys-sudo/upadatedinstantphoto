@@ -1086,15 +1086,14 @@
       const tmp = document.createElement('canvas'); tmp.width = src.width; tmp.height = src.height;
       const ctx = tmp.getContext('2d');
       ctx.filter = `brightness(${side.brightness}%) contrast(${side.contrast}%)`; ctx.drawImage(src,0,0); ctx.filter='none';
-      adPdfBlob = null; scheduleBake(side, 'ad', () => tmp, adUpdateGenerateBtn);
+      adPdfBlob = null; scheduleBake(side, 'ad', () => tmp, () => { adUpdateGenerateBtn(); showBakedPreview(side.imgId, side.croppedDataURL, 'ad'); });
     }
 
     function adFinaliseCrop(side, rawCanvas, label) {
       side._rawCanvas = rawCanvas;
-      side.croppedDataURL = rawCanvas.toDataURL('image/jpeg', 0.97);
-      const img = document.getElementById(side.imgId);
-      img.src = side.croppedDataURL;
-      img.style.filter = `brightness(${side.brightness}%) contrast(${side.contrast}%)`;
+      side.croppedDataURL = side._rawURL = rawCanvas.toDataURL('image/jpeg', 0.97);
+      document.getElementById(side.imgId).dataset.state = '';
+      showRawPreview(side, side.imgId);
       adBakeAdjusted(side);
       document.getElementById(side.stripLblId).textContent = '✓ ' + label;
       document.getElementById(side.stripId).classList.add('visible');
@@ -1152,7 +1151,7 @@
         side.contrast   = parseInt(document.getElementById(side.cSlId).value);
         document.getElementById(side.bValId).textContent = side.brightness;
         document.getElementById(side.cValId).textContent = side.contrast;
-        document.getElementById(side.imgId).style.filter = `brightness(${side.brightness}%) contrast(${side.contrast}%)`;
+        showRawPreview(side, side.imgId);
         if (side._rawCanvas) adBakeAdjusted(side);
         const link = document.getElementById('adLinkBC');
         if (fromLink !== true && link && link.checked) {
@@ -1513,6 +1512,20 @@
     }
     // Bakes (adjust + enhance + encode) are debounced so sliders stay smooth; flushed before any export.
     const pendingBakes = new Map();
+    // Cropped-card preview: show the fully processed image (corners, enhance, pure white…); while a brightness/contrast
+    // slider is moving, show the raw crop with a CSS filter for instant feedback until the bake lands.
+    function showBakedPreview(imgId, url, key) {
+      const img = document.getElementById(imgId); if (!img || !url) return;
+      img.src = url; img.style.filter = 'none'; img.dataset.state = 'baked';
+      // clip the on-screen preview to the same card curve so it's visible on the dark page (print keeps white corners)
+      if ((key === 'ad' || key === 'pn') && isRoundOn(key)) { const r = cardRadiusMM(key); img.style.borderRadius = `${(r / 85.6 * 100).toFixed(2)}% / ${(r / 54 * 100).toFixed(2)}%`; }
+      else img.style.borderRadius = '';
+    }
+    function showRawPreview(obj, imgId) {
+      const img = document.getElementById(imgId); if (!img || !obj._rawURL) return;
+      if (img.dataset.state !== 'raw') { img.src = obj._rawURL; img.dataset.state = 'raw'; }
+      img.style.filter = `brightness(${obj.brightness}%) contrast(${obj.contrast}%)`;
+    }
     function scheduleBake(obj, key, getCanvas, after) {
       const prev = pendingBakes.get(obj);
       if (prev) clearTimeout(prev.timer);
@@ -1650,12 +1663,11 @@
     function pnBakeAdjusted(){
       const src=pn._rawCanvas;const tmp=document.createElement('canvas');tmp.width=src.width;tmp.height=src.height;
       const ctx=tmp.getContext('2d');ctx.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;ctx.drawImage(src,0,0);ctx.filter='none';
-      pnPdfBlob=null;scheduleBake(pn,'pn',()=>tmp,pnUpdateGenerateBtn);
+      pnPdfBlob=null;scheduleBake(pn,'pn',()=>tmp,()=>{pnUpdateGenerateBtn();showBakedPreview('pnPreviewImg',pn.croppedDataURL,'pn');});
     }
     function pnFinaliseCrop(rawCanvas,label){
-      pn._rawCanvas=rawCanvas;pn.croppedDataURL=rawCanvas.toDataURL('image/jpeg',0.97);
-      const img=document.getElementById('pnPreviewImg');img.src=pn.croppedDataURL;
-      img.style.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;pnBakeAdjusted();
+      pn._rawCanvas=rawCanvas;pn.croppedDataURL=pn._rawURL=rawCanvas.toDataURL('image/jpeg',0.97);
+      document.getElementById('pnPreviewImg').dataset.state='';showRawPreview(pn,'pnPreviewImg');pnBakeAdjusted();
       document.getElementById('pnStripLbl').textContent='✓ '+label;
       document.getElementById('pnStrip').classList.add('visible');document.getElementById('pnBc').classList.add('visible');
       pnUpdateBadge('READY','ok');pnUpdateGenerateBtn();pnUpdateSteps();scToast('PAN ready ✓','ok');
@@ -1709,9 +1721,9 @@
         pnFinaliseCrop(tmp,'PAN Card Cropped');
       }catch(err){console.error(err);scToast('Crop failed: '+err.message,'err');}
     });
-    document.getElementById('pnBright').addEventListener('input',()=>{pn.brightness=parseInt(document.getElementById('pnBright').value);document.getElementById('pnBrightVal').textContent=pn.brightness;document.getElementById('pnPreviewImg').style.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;if(pn._rawCanvas)pnBakeAdjusted();});
-    document.getElementById('pnContr').addEventListener('input',()=>{pn.contrast=parseInt(document.getElementById('pnContr').value);document.getElementById('pnContrVal').textContent=pn.contrast;document.getElementById('pnPreviewImg').style.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;if(pn._rawCanvas)pnBakeAdjusted();});
-    document.getElementById('pnBcReset').addEventListener('click',()=>{document.getElementById('pnBright').value=100;document.getElementById('pnContr').value=100;pn.brightness=100;pn.contrast=100;document.getElementById('pnBrightVal').textContent=100;document.getElementById('pnContrVal').textContent=100;document.getElementById('pnPreviewImg').style.filter='';if(pn._rawCanvas)pnBakeAdjusted();scToast('Reset','warn');});
+    document.getElementById('pnBright').addEventListener('input',()=>{pn.brightness=parseInt(document.getElementById('pnBright').value);document.getElementById('pnBrightVal').textContent=pn.brightness;showRawPreview(pn,'pnPreviewImg');if(pn._rawCanvas)pnBakeAdjusted();});
+    document.getElementById('pnContr').addEventListener('input',()=>{pn.contrast=parseInt(document.getElementById('pnContr').value);document.getElementById('pnContrVal').textContent=pn.contrast;showRawPreview(pn,'pnPreviewImg');if(pn._rawCanvas)pnBakeAdjusted();});
+    document.getElementById('pnBcReset').addEventListener('click',()=>{document.getElementById('pnBright').value=100;document.getElementById('pnContr').value=100;pn.brightness=100;pn.contrast=100;document.getElementById('pnBrightVal').textContent=100;document.getElementById('pnContrVal').textContent=100;showRawPreview(pn,'pnPreviewImg');if(pn._rawCanvas)pnBakeAdjusted();scToast('Reset','warn');});
 
     function pnUpdateBadge(text,cls){const el=document.getElementById('pnBadge');el.textContent=text;el.className='sc-badge-right '+cls;}
     function pnUpdateSteps(){
@@ -1891,12 +1903,11 @@
     function ctBakeAdjusted(){
       const src=ct._rawCanvas;const tmp=document.createElement('canvas');tmp.width=src.width;tmp.height=src.height;
       const ctx=tmp.getContext('2d');ctx.filter=`brightness(${ct.brightness}%) contrast(${ct.contrast}%)`;ctx.drawImage(src,0,0);ctx.filter='none';
-      ctPdfBlob=null;scheduleBake(ct,'ct',()=>tmp,ctUpdateGenerateBtn);
+      ctPdfBlob=null;scheduleBake(ct,'ct',()=>tmp,()=>{ctUpdateGenerateBtn();showBakedPreview('ctPreviewImg',ct.croppedDataURL,'ct');});
     }
     function ctFinaliseCrop(rawCanvas,label){
-      ct._rawCanvas=rawCanvas;ct.croppedDataURL=rawCanvas.toDataURL('image/jpeg',0.97);
-      const img=document.getElementById('ctPreviewImg');img.src=ct.croppedDataURL;
-      img.style.filter=`brightness(${ct.brightness}%) contrast(${ct.contrast}%)`;ctBakeAdjusted();
+      ct._rawCanvas=rawCanvas;ct.croppedDataURL=ct._rawURL=rawCanvas.toDataURL('image/jpeg',0.97);
+      document.getElementById('ctPreviewImg').dataset.state='';showRawPreview(ct,'ctPreviewImg');ctBakeAdjusted();
       document.getElementById('ctStripLbl').textContent=label;
       document.getElementById('ctStrip').classList.add('visible');document.getElementById('ctBc').classList.add('visible');
       ctUpdateBadge('READY','ok');ctUpdateGenerateBtn();ctUpdateSteps();scToast('Certificate ready ✓','ok');
@@ -1950,9 +1961,9 @@
         ctFinaliseCrop(tmp,'Certificate Cropped');
       }catch(err){console.error(err);scToast('Crop failed: '+err.message,'err');}
     });
-    document.getElementById('ctBright').addEventListener('input',()=>{ct.brightness=parseInt(document.getElementById('ctBright').value);document.getElementById('ctBrightVal').textContent=ct.brightness;document.getElementById('ctPreviewImg').style.filter=`brightness(${ct.brightness}%) contrast(${ct.contrast}%)`;if(ct._rawCanvas)ctBakeAdjusted();});
-    document.getElementById('ctContr').addEventListener('input',()=>{ct.contrast=parseInt(document.getElementById('ctContr').value);document.getElementById('ctContrVal').textContent=ct.contrast;document.getElementById('ctPreviewImg').style.filter=`brightness(${ct.brightness}%) contrast(${ct.contrast}%)`;if(ct._rawCanvas)ctBakeAdjusted();});
-    document.getElementById('ctBcReset').addEventListener('click',()=>{document.getElementById('ctBright').value=100;document.getElementById('ctContr').value=100;ct.brightness=100;ct.contrast=100;document.getElementById('ctBrightVal').textContent=100;document.getElementById('ctContrVal').textContent=100;document.getElementById('ctPreviewImg').style.filter='';if(ct._rawCanvas)ctBakeAdjusted();scToast('Reset','warn');});
+    document.getElementById('ctBright').addEventListener('input',()=>{ct.brightness=parseInt(document.getElementById('ctBright').value);document.getElementById('ctBrightVal').textContent=ct.brightness;showRawPreview(ct,'ctPreviewImg');if(ct._rawCanvas)ctBakeAdjusted();});
+    document.getElementById('ctContr').addEventListener('input',()=>{ct.contrast=parseInt(document.getElementById('ctContr').value);document.getElementById('ctContrVal').textContent=ct.contrast;showRawPreview(ct,'ctPreviewImg');if(ct._rawCanvas)ctBakeAdjusted();});
+    document.getElementById('ctBcReset').addEventListener('click',()=>{document.getElementById('ctBright').value=100;document.getElementById('ctContr').value=100;ct.brightness=100;ct.contrast=100;document.getElementById('ctBrightVal').textContent=100;document.getElementById('ctContrVal').textContent=100;showRawPreview(ct,'ctPreviewImg');if(ct._rawCanvas)ctBakeAdjusted();scToast('Reset','warn');});
 
     function ctUpdateBadge(text,cls){const el=document.getElementById('ctBadge');el.textContent=text;el.className='sc-badge-right '+cls;}
     function ctUpdateSteps(){
