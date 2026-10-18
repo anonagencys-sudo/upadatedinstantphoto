@@ -67,6 +67,9 @@
     .sc-badge-right { margin-left: auto; font-family: var(--font-mono); font-size: 0.62rem; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-dim); }
     .sc-badge-right.ok { background: rgba(0,255,136,0.08); color: var(--green); border-color: rgba(0,255,136,0.2); }
 
+    .sc-canvas { touch-action: none; }
+    #cornerLoupe { position: fixed; z-index: 9999; width: 150px; height: 150px; border-radius: 50%; pointer-events: none; display: none;
+      border: 3px solid #00e5ff; box-shadow: 0 6px 24px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.5); background: #000; }
     .sc-canvas-wrap { padding: 1rem; background: #060608; position: relative; min-height: 180px; display: flex; align-items: center; justify-content: center; }
     canvas.sc-canvas { display: block; max-width: 100%; max-height: 280px; border-radius: 6px; cursor: crosshair; touch-action: none; }
 
@@ -2304,6 +2307,73 @@
       const btn=e.target.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent='Submitting…';
       emailjs.send("service_aoewzsq","template_hbw13lt",{contact,message,user_agent:navigator.userAgent,time:new Date().toLocaleString()}).then(()=>{showNotification("Feedback submitted!",false);document.getElementById('feedbackModal').classList.add('hidden');e.target.reset();}).catch(()=>showNotification("Failed to send. Try again.")).finally(()=>{btn.disabled=false;btn.textContent='Submit';});
     });
+  </script>
+  <canvas id="cornerLoupe" width="300" height="300"></canvas>
+  <script>
+    // ─── Corner magnifier: zoomed view of the ORIGINAL image under the pointer while picking corners ───
+    (() => {
+      const loupe = document.getElementById('cornerLoupe'), lx = loupe.getContext('2d');
+      const L = 300, Z = 5; // backing px (shown at 150 css px, sharp on retina) and zoom vs. the on-screen canvas
+      const targets = [
+        { canvas: () => document.getElementById('adFrontCanvas'), st: () => adFront },
+        { canvas: () => document.getElementById('adBackCanvas'),  st: () => adBack },
+        { canvas: () => document.getElementById('pnCanvas'),      st: () => pn },
+        { canvas: () => document.getElementById('ctCanvas'),      st: () => ct },
+      ];
+      function hide() { loupe.style.display = 'none'; }
+      function draw(t, e) {
+        const c = t.canvas(), s = t.st();
+        if (!c || !s.originalImage || c.style.display === 'none') return hide();
+        const r = c.getBoundingClientRect(), sx = c.width / r.width, sy = c.height / r.height;
+        const pos = { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+        const near = s.points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < DRAG_R);
+        if (!(e.buttons || e.pointerType === 'touch' || s.points.length < 4 || near || s.draggingIdx !== -1)) return hide();
+        // source window in original-image pixels (full resolution → sharp detail)
+        // 150 css px loupe at Z× zoom shows (150/Z) css px of the canvas → canvas px (×sx) → original px (÷scale)
+        const half = (150 / Z) * sx / s.scale / 2, cx = pos.x / s.scale, cy = pos.y / s.scale;
+        lx.save(); lx.clearRect(0, 0, L, L);
+        lx.beginPath(); lx.arc(L / 2, L / 2, L / 2, 0, Math.PI * 2); lx.clip();
+        lx.fillStyle = '#000'; lx.fillRect(0, 0, L, L);
+        lx.imageSmoothingQuality = 'high';
+        lx.drawImage(s.originalImage, cx - half, cy - half, half * 2, half * 2, 0, 0, L, L);
+        // existing corners + outline, mapped into the loupe
+        const pts = s.points.map(p => ({ x: L / 2 + (p.x - pos.x) / s.scale * (L / (half * 2)), y: L / 2 + (p.y - pos.y) / s.scale * (L / (half * 2)) }));
+        if (pts.length >= 2) {
+          lx.beginPath(); lx.moveTo(pts[0].x, pts[0].y); pts.slice(1).forEach(p => lx.lineTo(p.x, p.y));
+          if (pts.length === 4) lx.closePath();
+          lx.strokeStyle = 'rgba(0,229,255,0.85)'; lx.lineWidth = 2; lx.setLineDash([8, 6]); lx.stroke(); lx.setLineDash([]);
+        }
+        pts.forEach((p, i) => { lx.beginPath(); lx.arc(p.x, p.y, 7, 0, Math.PI * 2); lx.strokeStyle = AD_COLORS[i]; lx.lineWidth = 3; lx.stroke(); });
+        // crosshair at the exact pick point
+        const nextIdx = s.draggingIdx !== -1 ? s.draggingIdx : Math.min(s.points.length, 3);
+        lx.strokeStyle = 'rgba(0,0,0,0.75)'; lx.lineWidth = 5;
+        lx.beginPath(); lx.moveTo(L / 2 - 26, L / 2); lx.lineTo(L / 2 + 26, L / 2); lx.moveTo(L / 2, L / 2 - 26); lx.lineTo(L / 2, L / 2 + 26); lx.stroke();
+        lx.strokeStyle = AD_COLORS[nextIdx]; lx.lineWidth = 2; lx.stroke();
+        lx.font = 'bold 22px Space Mono, monospace'; lx.fillStyle = AD_COLORS[nextIdx]; lx.textAlign = 'center';
+        if (s.points.length < 4 || s.draggingIdx !== -1) lx.fillText(PT_LABELS[nextIdx], L / 2, L - 22);
+        lx.restore();
+        loupe.style.borderColor = AD_COLORS[nextIdx];
+        // place it away from the finger/cursor, kept on screen
+        const size = 150, vw = window.innerWidth, vh = window.innerHeight;
+        let left, top;
+        if (e.pointerType === 'touch') { left = e.clientX - size / 2; top = e.clientY - size - 50; if (top < 8) top = e.clientY + 50; }
+        else { left = e.clientX + 28; top = e.clientY - size - 28; if (left + size > vw - 8) left = e.clientX - size - 28; if (top < 8) top = e.clientY + 28; }
+        loupe.style.left = Math.max(8, Math.min(vw - size - 8, left)) + 'px';
+        loupe.style.top = Math.max(8, Math.min(vh - size - 8, top)) + 'px';
+        loupe.style.display = 'block';
+      }
+      targets.forEach(t => {
+        const c = t.canvas(); if (!c) return;
+        let raf = 0, last = null;
+        const sched = e => { last = e; if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(t, last); }); };
+        c.addEventListener('pointerdown', sched);
+        c.addEventListener('pointermove', sched);
+        c.addEventListener('pointerup', e => { if (e.pointerType === 'touch') hide(); else sched(e); });
+        c.addEventListener('pointerleave', hide);
+        c.addEventListener('pointercancel', hide);
+      });
+      window.addEventListener('scroll', hide, { passive: true });
+    })();
   </script>
 </body>
 </html>
