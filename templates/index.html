@@ -415,6 +415,7 @@
             </div>
             <div class="sc-gen-btns">
               <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;" title="Brightness/contrast changes on one side are copied to the other"><input type="checkbox" id="adLinkBC" checked style="accent-color:#7c3aed;"> Same adjustments both sides</label>
+              <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="ad" checked style="accent-color:#f59e0b;"> Rounded corners</label>
               <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;"><input type="checkbox" class="sc-enhance" data-sheet="ad" checked style="accent-color:#22c55e;"> Auto-enhance</label>
               <button class="sc-btn primary" id="adGenerate" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -524,6 +525,7 @@
               <div class="sc-gen-sub">PAN card printed photocopy-style on A4 (multiple copies per page).</div>
             </div>
             <div class="sc-gen-btns">
+              <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="pn" checked style="accent-color:#f59e0b;"> Rounded corners</label>
               <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;"><input type="checkbox" class="sc-enhance" data-sheet="pn" checked style="accent-color:#22c55e;"> Auto-enhance</label>
               <button class="sc-btn primary" id="pnGenerate" disabled style="background:linear-gradient(135deg,#92400e,#d97706);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -1345,6 +1347,26 @@
     const SCAN_MAX_PX = { std: { ad: 1300, pn: 1300, ct: 3508 }, high: { ad: Infinity, pn: Infinity, ct: Infinity } };
     const SCAN_MAX_AREA = { ad: 8e6, pn: 8e6, ct: 12e6 };
     const isEnhanceOn = key => { const el = document.querySelector(`.sc-enhance[data-sheet="${key}"]`); return !el || el.checked; };
+    // Real ID-card corners (ISO/IEC 7810 ID-1: 3.18 mm radius on 85.6 x 54 mm) + faint cutting outline
+    const isRoundOn = key => { const el = document.querySelector(`.sc-round[data-sheet="${key}"]`); return !!el && el.checked; };
+    function roundCard(src) {
+      const w = src.width, h = src.height, rx = w * 3.18 / 85.6, ry = h * 3.18 / 54;
+      const out = document.createElement('canvas'); out.width = w; out.height = h;
+      const x = out.getContext('2d');
+      const path = (i) => { // elliptical corners (card may not be exactly 85.6:54 before placement)
+        const k = 0.5523, a = rx - i, b = ry - i, L = i, T = i, R = w - i, B = h - i;
+        x.beginPath(); x.moveTo(L + a, T); x.lineTo(R - a, T);
+        x.bezierCurveTo(R - a + a * k, T, R, T + b - b * k, R, T + b); x.lineTo(R, B - b);
+        x.bezierCurveTo(R, B - b + b * k, R - a + a * k, B, R - a, B); x.lineTo(L + a, B);
+        x.bezierCurveTo(L + a - a * k, B, L, B - b + b * k, L, B - b); x.lineTo(L, T + b);
+        x.bezierCurveTo(L, T + b - b * k, L + a - a * k, T, L + a, T); x.closePath();
+      };
+      x.fillStyle = '#fff'; x.fillRect(0, 0, w, h);
+      x.save(); path(0); x.clip(); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0); x.restore();
+      const lw = Math.max(1, w * 0.15 / 85.6); // ~0.15 mm
+      x.lineWidth = lw; x.strokeStyle = '#c7c7c7'; path(lw / 2); x.stroke();
+      return out;
+    }
     function finishScan(canvas, key) {
       let out = canvas;
       const max = SCAN_MAX_PX[printQuality][key], long = Math.max(canvas.width, canvas.height);
@@ -1357,6 +1379,7 @@
         c.drawImage(canvas, 0, 0, out.width, out.height);
       }
       if (isEnhanceOn(key)) enhanceCanvas(out, key === 'ct' ? { amount: 0.7, threshold: 3, levels: 'channel' } : { amount: 0.6, threshold: 3, levels: 'channel' });
+      if ((key === 'ad' || key === 'pn') && isRoundOn(key)) out = roundCard(out);
       return out.toDataURL('image/jpeg', 0.98);
     }
     // Bakes (adjust + enhance + encode) are debounced so sliders stay smooth; flushed before any export.
@@ -2233,12 +2256,12 @@
         scToast(`${fmt.toUpperCase()} downloaded ✓`,'ok');
       }catch(e){scToast('Export failed. Try again.','warn');}
     }
-    document.querySelectorAll('.sc-enhance').forEach(cb=>cb.addEventListener('change',()=>{
+    document.querySelectorAll('.sc-enhance, .sc-round').forEach(cb=>cb.addEventListener('change',()=>{
       const k=cb.dataset.sheet;
       if(k==='ad') [adFront,adBack].forEach(s=>{if(s._rawCanvas) adBakeAdjusted(s);});
       if(k==='pn'&&pn._rawCanvas) pnBakeAdjusted();
       if(k==='ct'&&ct._rawCanvas) ctBakeAdjusted();
-      scToast(cb.checked?'Enhancement on':'Enhancement off','ok');
+      scToast(cb.classList.contains('sc-round')?(cb.checked?'Rounded corners on':'Square corners'):(cb.checked?'Enhancement on':'Enhancement off'),'ok');
     }));
     document.querySelectorAll('.sc-direct, .sc-dl').forEach(b=>b.addEventListener('click',()=>scannerDownload(b.dataset.sheet,b.dataset.fmt)));
     function setSelectedColor(hex){document.getElementById('bgColorValue').value=hex;document.getElementById('selectedColorPreview').style.background=hex;document.getElementById('customBgColor').value=hex;document.querySelectorAll('.bg-color-btn').forEach(btn=>{const m=btn.dataset.color===hex;btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);});}
