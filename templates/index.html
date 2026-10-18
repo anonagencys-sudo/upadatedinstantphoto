@@ -115,6 +115,8 @@
     .sc-gen-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--text); }
     .sc-gen-sub { font-size: 0.78rem; color: var(--text-dim); }
     .sc-gen-btns { display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center; }
+    .sc-direct-lbl { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #6b6b80; margin-left: 0.25rem; }
+    .fmt-btn.active { background: #2563eb; border-color: #3b82f6; color: #fff; }
 
     .sc-pdf-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: none; margin-top: 0; }
     .sc-pdf-section.visible { display: block; }
@@ -247,14 +249,25 @@
               <div><label class="block mb-1 text-sm font-medium">Border (px)</label><input type="number" id="border" value="2" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"/></div>
             </div>
           </div>
-          <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <button id="generateBtn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105 glow-shadow disabled:opacity-50 disabled:cursor-not-allowed">Generate Sheet</button>
-            <button id="downloadPhotoBtn" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105">Download Photo</button>
-            <button id="downloadBtn" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105 hidden">Download PDF</button>
+          <div class="flex items-center justify-center gap-2 pt-4" id="formatPicker">
+            <span class="text-sm text-gray-400 mr-1">Format:</span>
+            <button class="fmt-btn active text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 transition-all" data-fmt="pdf">PDF</button>
+            <button class="fmt-btn text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 transition-all" data-fmt="png">PNG</button>
+            <button class="fmt-btn text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 transition-all" data-fmt="jpg">JPG</button>
+          </div>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+            <button id="generateBtn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105 glow-shadow disabled:opacity-50 disabled:cursor-not-allowed">Generate &amp; Preview</button>
+            <button id="directDownloadBtn" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">Download Sheet Directly (PDF)</button>
+            <button id="downloadPhotoBtn" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105">Download Photo (JPG)</button>
+          </div>
+          <div id="sheetDownloads" class="hidden flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button id="downloadBtn" data-fmt="pdf" class="sheet-dl w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 px-6 rounded-lg transition-all">Download PDF</button>
+            <button data-fmt="png" class="sheet-dl w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 px-6 rounded-lg transition-all">Download PNG</button>
+            <button data-fmt="jpg" class="sheet-dl w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 px-6 rounded-lg transition-all">Download JPG</button>
           </div>
           <div id="loading" class="hidden text-blue-400 font-semibold text-center">Processing images... please wait</div>
         </div>
-        <embed id="pdfPreview" type="application/pdf" class="w-full h-[500px] mt-6 hidden rounded-lg"/>
+        <div id="sheetPreview" class="hidden mt-6 space-y-4"></div>
       </div>
 
       <!-- ===== AADHAAR MODE ===== -->
@@ -379,6 +392,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 Generate PDF
               </button>
+              <span class="sc-direct-lbl">or download directly:</span>
+              <button class="sc-btn sc-direct" data-sheet="ad" data-fmt="pdf" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF</button>
+              <button class="sc-btn sc-direct" data-sheet="ad" data-fmt="png" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PNG</button>
+              <button class="sc-btn sc-direct" data-sheet="ad" data-fmt="jpg" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>JPG</button>
               <span id="adReadyStatus" style="font-family:'Space Mono',monospace;font-size:0.68rem;color:#6b6b80;">Upload &amp; crop both sides</span>
             </div>
           </div>
@@ -393,6 +410,8 @@
             <div class="sc-pdf-canvas-wrap"><canvas id="adPdfCanvas"></canvas></div>
             <div class="sc-pdf-actions">
               <button class="sc-btn success" id="adDownload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PDF</button>
+              <button class="sc-btn success sc-dl" data-sheet="ad" data-fmt="png"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PNG</button>
+              <button class="sc-btn success sc-dl" data-sheet="ad" data-fmt="jpg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download JPG</button>
               <button class="sc-btn" id="adRegenerate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Regenerate</button>
             </div>
           </div>
@@ -481,6 +500,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 Generate PDF
               </button>
+              <span class="sc-direct-lbl">or download directly:</span>
+              <button class="sc-btn sc-direct" data-sheet="pn" data-fmt="pdf" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF</button>
+              <button class="sc-btn sc-direct" data-sheet="pn" data-fmt="png" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PNG</button>
+              <button class="sc-btn sc-direct" data-sheet="pn" data-fmt="jpg" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>JPG</button>
               <span id="pnReadyStatus" style="font-family:'Space Mono',monospace;font-size:0.68rem;color:#6b6b80;">Upload &amp; crop card to continue</span>
             </div>
           </div>
@@ -495,6 +518,8 @@
             <div class="sc-pdf-canvas-wrap"><canvas id="pnPdfCanvas"></canvas></div>
             <div class="sc-pdf-actions">
               <button class="sc-btn success" id="pnDownload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PDF</button>
+              <button class="sc-btn success sc-dl" data-sheet="pn" data-fmt="png"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PNG</button>
+              <button class="sc-btn success sc-dl" data-sheet="pn" data-fmt="jpg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download JPG</button>
               <button class="sc-btn" id="pnRegenerate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Regenerate</button>
             </div>
           </div>
@@ -577,6 +602,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 Generate PDF
               </button>
+              <span class="sc-direct-lbl">or download directly:</span>
+              <button class="sc-btn sc-direct" data-sheet="ct" data-fmt="pdf" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF</button>
+              <button class="sc-btn sc-direct" data-sheet="ct" data-fmt="png" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PNG</button>
+              <button class="sc-btn sc-direct" data-sheet="ct" data-fmt="jpg" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>JPG</button>
               <span id="ctReadyStatus" style="font-family:'Space Mono',monospace;font-size:0.68rem;color:#6b6b80;">Upload and crop certificate to continue</span>
             </div>
           </div>
@@ -590,6 +619,8 @@
             <div class="sc-pdf-canvas-wrap"><canvas id="ctPdfCanvas"></canvas></div>
             <div class="sc-pdf-actions">
               <button class="sc-btn success" id="ctDownload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PDF</button>
+              <button class="sc-btn success sc-dl" data-sheet="ct" data-fmt="png"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download PNG</button>
+              <button class="sc-btn success sc-dl" data-sheet="ct" data-fmt="jpg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download JPG</button>
               <button class="sc-btn" id="ctRegenerate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Regenerate</button>
             </div>
           </div>
@@ -1080,7 +1111,7 @@
     }
     function adUpdateGenerateBtn() {
       const ready = !!(adFront.croppedDataURL && adBack.croppedDataURL);
-      document.getElementById('adGenerate').disabled = !ready;
+      document.getElementById('adGenerate').disabled = !ready;setDirectBtns('ad',!ready);
       const st = document.getElementById('adReadyStatus');
       st.textContent = ready ? 'Both sides ready ✓' : (!adFront.croppedDataURL && !adBack.croppedDataURL) ? 'Upload & crop both sides' : !adFront.croppedDataURL ? 'Crop front side first' : 'Crop back side first';
       st.style.color = ready ? '#00ff88' : '#6b6b80';
@@ -1105,52 +1136,99 @@
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
-    async function generateAadhaarPDF(frontImg, backImg) {
-      const PAGE_W = 210;
-      const PAGE_H = 297;
-      const MARGIN_X = 14;
-      const MARGIN_Y = 20;
-      const GAP = 10;
-      const CARD_W = 85.6;
-      const CARD_H = 54;
-      const totalWidth = (CARD_W * 2) + GAP;
-      const x = (PAGE_W - totalWidth) / 2;
-      const y = 26.5;
-      const frontX = Math.max(MARGIN_X, x);
-      const backX = frontX + CARD_W + GAP;
-      const layoutOverflow = backX + CARD_W > PAGE_W - MARGIN_X;
-      const safeFrontX = layoutOverflow ? MARGIN_X : frontX;
-      const safeBackX = safeFrontX + CARD_W + GAP;
-      const cardWidth = CARD_W;
-      const cardHeight = CARD_H;
-      const frontY = y;
-      const backY = y;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    async function downloadFiles(files) {
+      for (let i = 0; i < files.length; i++) {
+        downloadPdfBlob(files[i].blob, files[i].name);
+        if (i < files.length - 1) await sleep(500);
+      }
+    }
 
+    // ─── Export helpers (A4 @ 300 DPI) ────────────────────────────────
+    const A4_MM = { w: 210, h: 297 };
+    const A4_PX = { w: 2480, h: 3508 };
+    const FMT_MIME = { png: 'image/png', jpg: 'image/jpeg' };
+    const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+    function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+    // Canvas exports are tagged 72 DPI; stamp 300 DPI so "actual size" printing is correct.
+    async function setImageDpi(blob, fmt, dpi = 300) {
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      if (fmt === 'jpg') {
+        if (buf[2] === 0xFF && buf[3] === 0xE0 && buf[6] === 0x4A && buf[7] === 0x46) { // JFIF APP0
+          buf[13] = 1; buf[14] = dpi >> 8; buf[15] = dpi & 0xFF; buf[16] = dpi >> 8; buf[17] = dpi & 0xFF;
+        }
+        return new Blob([buf], { type: 'image/jpeg' });
+      }
+      const ppm = Math.round(dpi / 0.0254);
+      const chunk = new Uint8Array(21); const dv = new DataView(chunk.buffer);
+      dv.setUint32(0, 9); chunk.set([0x70, 0x48, 0x59, 0x73], 4); // "pHYs"
+      dv.setUint32(8, ppm); dv.setUint32(12, ppm); chunk[16] = 1;
+      dv.setUint32(17, crc32(chunk.subarray(4, 17)));
+      const out = new Uint8Array(buf.length + 21);
+      out.set(buf.subarray(0, 33)); out.set(chunk, 33); out.set(buf.subarray(33), 54); // after IHDR
+      return new Blob([out], { type: 'image/png' });
+    }
+    function canvasToBlob(canvas, fmt) {
+      return new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Export failed')), FMT_MIME[fmt], fmt === 'jpg' ? 0.95 : undefined));
+    }
+    async function drawA4(canvas, items, widthPx) {
+      canvas.width = widthPx;
+      canvas.height = widthPx === A4_PX.w ? A4_PX.h : Math.round(widthPx * A4_MM.h / A4_MM.w);
+      const ctx = canvas.getContext('2d');
+      const k = widthPx / A4_MM.w;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const imgs = await Promise.all(items.map(it => adLoadImg(it.src)));
+      imgs.forEach((img, i) => { const it = items[i]; ctx.drawImage(img, it.x * k, it.y * k, it.w * k, it.h * k); });
+      return canvas;
+    }
+    function buildA4Pdf(items) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      doc.addImage(frontImg, getPdfImageFormat(frontImg), safeFrontX, frontY, cardWidth, cardHeight);
-      doc.addImage(backImg, getPdfImageFormat(backImg), safeBackX, backY, cardWidth, cardHeight);
+      items.forEach(it => doc.addImage(it.src, getPdfImageFormat(it.src), it.x, it.y, it.w, it.h));
+      return doc.output('blob');
+    }
+    async function buildA4Image(items, fmt) {
+      const canvas = await drawA4(document.createElement('canvas'), items, A4_PX.w);
+      return setImageDpi(await canvasToBlob(canvas, fmt), fmt);
+    }
+    const a4PreviewWidth = () => Math.max(320, Math.min(560, window.innerWidth - 60));
 
-      adPdfBlob = doc.output('blob');
-
-      const canvas = document.getElementById('adPdfCanvas');
-      const previewWidth = Math.max(320, Math.min(560, window.innerWidth - 60));
-      const previewHeight = Math.round(previewWidth * (PAGE_H / PAGE_W));
-      const pxPerMm = previewWidth / PAGE_W;
-      canvas.width = previewWidth;
-      canvas.height = previewHeight;
-
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, previewWidth, previewHeight);
-
-      const [front, back] = await Promise.all([adLoadImg(frontImg), adLoadImg(backImg)]);
-      ctx.drawImage(front, safeFrontX * pxPerMm, frontY * pxPerMm, cardWidth * pxPerMm, cardHeight * pxPerMm);
-      ctx.drawImage(back, safeBackX * pxPerMm, backY * pxPerMm, cardWidth * pxPerMm, cardHeight * pxPerMm);
-
+    // Card / document layouts in mm on an A4 page
+    function aadhaarLayout(frontImg, backImg) {
+      const MARGIN_X = 14, GAP = 10, CARD_W = 85.6, CARD_H = 54, y = 26.5;
+      let fx = Math.max(MARGIN_X, (A4_MM.w - (CARD_W * 2 + GAP)) / 2);
+      if (fx + CARD_W + GAP + CARD_W > A4_MM.w - MARGIN_X) fx = MARGIN_X;
+      return [
+        { src: frontImg, x: fx, y, w: CARD_W, h: CARD_H },
+        { src: backImg, x: fx + CARD_W + GAP, y, w: CARD_W, h: CARD_H },
+      ];
+    }
+    function panLayout(panImg) {
+      const CARD_W = 85.6, CARD_H = 54;
+      return [{ src: panImg, x: (A4_MM.w - CARD_W) / 2, y: 26.5, w: CARD_W, h: CARD_H }];
+    }
+    async function certificateLayout(docImg) {
+      const MARGIN = 8;
+      const pw = A4_MM.w - MARGIN * 2, ph = A4_MM.h - MARGIN * 2;
+      const img = await adLoadImg(docImg);
+      const ratio = img.width / img.height;
+      let w = pw, h = w / ratio;
+      if (h > ph) { h = ph; w = h * ratio; }
+      return [{ src: docImg, x: (A4_MM.w - w) / 2, y: (A4_MM.h - h) / 2, w, h }];
+    }
+    function setDirectBtns(key, disabled) {
+      document.querySelectorAll(`.sc-direct[data-sheet="${key}"]`).forEach(b => b.disabled = disabled);
+    }
+    async function generateAadhaarPDF(frontImg, backImg) {
+      const items = aadhaarLayout(frontImg, backImg);
+      adPdfBlob = buildA4Pdf(items);
+      await drawA4(document.getElementById('adPdfCanvas'), items, a4PreviewWidth());
       document.getElementById('adPdfSection').classList.add('visible');
       document.getElementById('adPdfSection').scrollIntoView({behavior:'smooth',block:'nearest'});
       adSetStep(3, true, true);
@@ -1345,43 +1423,16 @@
       el.querySelector('.sc-step-num').textContent=done?'✓':n;
     }
     function pnUpdateGenerateBtn(){
-      const ready=!!pn.croppedDataURL;document.getElementById('pnGenerate').disabled=!ready;
+      const ready=!!pn.croppedDataURL;document.getElementById('pnGenerate').disabled=!ready;setDirectBtns('pn',!ready);
       const st=document.getElementById('pnReadyStatus');st.textContent=ready?'Ready to generate ✓':'Upload & crop card to continue';st.style.color=ready?'#00ff88':'#6b6b80';
     }
     async function generatePanPDF(panImg) {
-      const PAGE_W = 210;
-      const PAGE_H = 297;
-      const MARGIN = 20;
-      const CARD_W = 85.6;
-      const CARD_H = 54;
-      const cardWidth = CARD_W;
-      const cardHeight = CARD_H;
-      const x = (PAGE_W - cardWidth) / 2;
-      const y = 26.5;
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      doc.addImage(panImg, getPdfImageFormat(panImg), x, y, cardWidth, cardHeight);
-
-      pnPdfBlob = doc.output('blob');
-
-      const canvas = document.getElementById('pnPdfCanvas');
-      const previewWidth = Math.max(320, Math.min(560, window.innerWidth - 60));
-      const previewHeight = Math.round(previewWidth * (PAGE_H / PAGE_W));
-      const pxPerMm = previewWidth / PAGE_W;
-      canvas.width = previewWidth;
-      canvas.height = previewHeight;
-
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, previewWidth, previewHeight);
-
-      const cardImg = await adLoadImg(panImg);
-      ctx.drawImage(cardImg, x * pxPerMm, y * pxPerMm, cardWidth * pxPerMm, cardHeight * pxPerMm);
-
+      const items = panLayout(panImg);
+      pnPdfBlob = buildA4Pdf(items);
+      await drawA4(document.getElementById('pnPdfCanvas'), items, a4PreviewWidth());
       document.getElementById('pnPdfSection').classList.add('visible');
       document.getElementById('pnPdfSection').scrollIntoView({behavior:'smooth',block:'nearest'});
-      pnSetStep(3,true,true);
+      pnSetStep(3, true, true);
       return pnPdfBlob;
     }
     async function pnGeneratePDF(){
@@ -1614,50 +1665,16 @@
       el.querySelector('.sc-step-num').textContent=done?'✓':n;
     }
     function ctUpdateGenerateBtn(){
-      const ready=!!ct.croppedDataURL;document.getElementById('ctGenerate').disabled=!ready;
+      const ready=!!ct.croppedDataURL;document.getElementById('ctGenerate').disabled=!ready;setDirectBtns('ct',!ready);
       const st=document.getElementById('ctReadyStatus');st.textContent=ready?'Ready to generate ✓':'Upload and crop certificate to continue';st.style.color=ready?'#00ff88':'#6b6b80';
     }
     async function generateCertificatePDF(docImg) {
-      const PAGE_W = 210;
-      const PAGE_H = 297;
-      const MARGIN = 8;
-      const printableW = PAGE_W - (MARGIN * 2);
-      const printableH = PAGE_H - (MARGIN * 2);
-
-      const docPreview = await adLoadImg(docImg);
-      const imgRatio = docPreview.width / docPreview.height;
-      let drawW = printableW;
-      let drawH = drawW / imgRatio;
-      if (drawH > printableH) {
-        drawH = printableH;
-        drawW = drawH * imgRatio;
-      }
-      const x = (PAGE_W - drawW) / 2;
-      const y = (PAGE_H - drawH) / 2;
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
-      doc.addImage(docImg, getPdfImageFormat(docImg), x, y, drawW, drawH);
-
-      ctPdfBlob = doc.output('blob');
-
-      const canvas = document.getElementById('ctPdfCanvas');
-      const previewWidth = Math.max(320, Math.min(560, window.innerWidth - 60));
-      const previewHeight = Math.round(previewWidth * (PAGE_H / PAGE_W));
-      const pxPerMm = previewWidth / PAGE_W;
-      canvas.width = previewWidth;
-      canvas.height = previewHeight;
-
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, previewWidth, previewHeight);
-      ctx.drawImage(docPreview, x * pxPerMm, y * pxPerMm, drawW * pxPerMm, drawH * pxPerMm);
-
+      const items = await certificateLayout(docImg);
+      ctPdfBlob = buildA4Pdf(items);
+      await drawA4(document.getElementById('ctPdfCanvas'), items, a4PreviewWidth());
       document.getElementById('ctPdfSection').classList.add('visible');
       document.getElementById('ctPdfSection').scrollIntoView({behavior:'smooth',block:'nearest'});
-      ctSetStep(3,true,true);
+      ctSetStep(3, true, true);
       return ctPdfBlob;
     }
     async function ctGeneratePDF(){
@@ -1683,7 +1700,8 @@
     const dropZone=document.getElementById('dropZone'),imageInput=document.getElementById('imageInput');
     const photoList=document.getElementById('photoList'),addMoreWrapper=document.getElementById('addMoreWrapper');
     const generateBtn=document.getElementById('generateBtn'),downloadPhotoBtn=document.getElementById('downloadPhotoBtn'),downloadBtn=document.getElementById('downloadBtn');
-    const pdfPreview=document.getElementById('pdfPreview'),loading=document.getElementById('loading');
+    const loading=document.getElementById('loading'),directDownloadBtn=document.getElementById('directDownloadBtn');
+    const sheetPreview=document.getElementById('sheetPreview'),sheetDownloads=document.getElementById('sheetDownloads');
     const cropperModal=document.getElementById('cropperModal'),cropModalImage=document.getElementById('cropModalImage');
 
     function fileToDataURL(file){
@@ -1734,10 +1752,10 @@
       if(!response.ok) throw new Error('Background removal failed. Try again.');
       return response.blob();
     }
-    async function downloadPhotoAsJpeg(){
+    async function downloadSinglePhoto(){
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
+      const fmt=selectedFmt==='png'?'png':'jpg';
       const photo=photos[0];
-      const photoNumber=1;
       const sourceFile=photo.croppedFile||photo.originalFile;
       downloadPhotoBtn.disabled=true;
       downloadPhotoBtn.textContent='Removing BG...';
@@ -1745,6 +1763,7 @@
         const removedBgBlob=await removePhotoBackground(sourceFile);
         const processedUrl=URL.createObjectURL(removedBgBlob);
         const img=await adLoadImg(processedUrl);
+        URL.revokeObjectURL(processedUrl);
         const canvas=document.createElement('canvas');
         canvas.width=img.naturalWidth||img.width;
         canvas.height=img.naturalHeight||img.height;
@@ -1752,15 +1771,12 @@
         ctx.fillStyle=document.getElementById('bgColorValue').value||'#FFFFFF';
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        canvas.toBlob(blob=>{
-          URL.revokeObjectURL(processedUrl);
-          if(!blob){showNotification("Could not create JPEG. Try again.");return;}
-          downloadPdfBlob(blob,`photo-${photoNumber}.jpg`);
-          showNotification("Background removed and photo downloaded!",false);
-        },'image/jpeg',0.95);
+        const blob=await canvasToBlob(canvas,fmt);
+        downloadPdfBlob(blob,`photo-1.${fmt}`);
+        showNotification("Background removed and photo downloaded!",false);
       }finally{
         downloadPhotoBtn.disabled=false;
-        downloadPhotoBtn.textContent='Download Photo';
+        updateFormatLabels();
       }
     }
 
@@ -1793,15 +1809,117 @@
     document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/png'});photo.previewUrl=URL.createObjectURL(blob);activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);},'image/png');});
     document.getElementById('cancelCropBtn').addEventListener('click',()=>{if(activeCropper){activeCropper.destroy();activeCropper=null;}pendingCropId=null;cropperModal.classList.add('hidden');});
     document.getElementById('toggleAdvanced').addEventListener('click',function(){const el=document.getElementById('advancedOptions');const visible=el.style.display==='block';el.style.display=visible?'none':'block';this.textContent=visible?'Advanced Options':'Hide Advanced Options';});
-    downloadPhotoBtn.addEventListener('click',()=>{downloadPhotoAsJpeg().catch(()=>showNotification("Could not download JPEG. Try again."));});
-    generateBtn.addEventListener('click',()=>{
-      if(!photos.length){showNotification("Please upload at least one photo.");return;}
+    downloadPhotoBtn.addEventListener('click',()=>{downloadSinglePhoto().catch(e=>showNotification(e&&e.message?e.message:"Could not download photo. Try again."));});
+    // ─── Passport sheet: one backend call, then PDF / PNG / JPG built locally ───
+    let selectedFmt='pdf', sheetCache=null;
+    const FMT_LABEL={pdf:'PDF',png:'PNG',jpg:'JPG'};
+    function updateFormatLabels(){
+      directDownloadBtn.textContent=`Download Sheet Directly (${FMT_LABEL[selectedFmt]})`;
+      downloadPhotoBtn.textContent=`Download Photo (${selectedFmt==='png'?'PNG':'JPG'})`;
+    }
+    document.querySelectorAll('.fmt-btn').forEach(btn=>btn.addEventListener('click',()=>{
+      selectedFmt=btn.dataset.fmt;
+      document.querySelectorAll('.fmt-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      updateFormatLabels();
+    }));
+    function sheetKey(){
+      return {
+        files:photos.map(p=>p.croppedFile||p.originalFile),
+        meta:JSON.stringify([photos.map(p=>p.copies),document.getElementById('height').value,document.getElementById('border').value,document.getElementById('bgColorValue').value])
+      };
+    }
+    const sameKey=(a,b)=>a.meta===b.meta&&a.files.length===b.files.length&&a.files.every((f,i)=>f===b.files[i]);
+    async function fetchSheetPages(){
+      const key=sheetKey();
+      if(sheetCache&&sameKey(sheetCache.key,key)) return sheetCache.pages;
       const fd=new FormData();
       photos.forEach((p,i)=>{fd.append(`image_${i}`,p.croppedFile||p.originalFile);fd.append(`copies_${i}`,p.copies);});
-      fd.append('width',document.getElementById('width').value);fd.append('height',document.getElementById('height').value);fd.append('spacing',document.getElementById('spacing').value);fd.append('border',document.getElementById('border').value);fd.append('bg_color',document.getElementById('bgColorValue').value);
-      loading.classList.remove('hidden');generateBtn.disabled=true;downloadBtn.classList.add('hidden');pdfPreview.classList.add('hidden');
-      fetch((window.BACKEND_URL||'')+'/process',{method:'POST',body:fd}).then(async r=>{if(r.status===429){showNotification("Quota Exceeded. Try again later.");return null;}if(r.status===410){showNotification("Cannot detect face in one of the images.");return null;}if(!r.ok)throw new Error();return r.blob();}).then(blob=>{if(!blob)return;const url=URL.createObjectURL(blob);pdfPreview.classList.remove('hidden');pdfPreview.src=url;downloadBtn.classList.remove('hidden');downloadBtn.onclick=()=>{const a=document.createElement('a');a.href=url;a.download='passport-sheet.pdf';a.click();};showNotification("PDF generated!",false);}).catch(()=>showNotification("Processing failed. Try again.")).finally(()=>{loading.classList.add('hidden');generateBtn.disabled=false;});
+      fd.append('height',document.getElementById('height').value);
+      fd.append('border',document.getElementById('border').value);
+      fd.append('bg_color',document.getElementById('bgColorValue').value);
+      fd.append('format','pages');
+      const r=await fetch((window.BACKEND_URL||'')+'/process',{method:'POST',body:fd});
+      if(r.status===429) throw new Error('Quota Exceeded. Try again later.');
+      if(r.status===410) throw new Error('Cannot detect face in one of the images.');
+      if(!r.ok) throw new Error('Processing failed. Try again.');
+      const data=await r.json();
+      sheetCache={key,pages:data.pages};
+      return data.pages;
+    }
+    async function sheetFiles(pages,fmt){
+      if(fmt==='pdf'){
+        const { jsPDF } = window.jspdf;
+        const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+        for(let i=0;i<pages.length;i++){
+          if(i) doc.addPage('a4','portrait');
+          const c=await drawA4(document.createElement('canvas'),[{src:pages[i],x:0,y:0,w:A4_MM.w,h:A4_MM.h}],A4_PX.w);
+          doc.addImage(c.toDataURL('image/jpeg',0.95),'JPEG',0,0,A4_MM.w,A4_MM.h);
+        }
+        return [{blob:doc.output('blob'),name:'passport-sheet.pdf'}];
+      }
+      const files=[];
+      for(let i=0;i<pages.length;i++){
+        const name=pages.length===1?`passport-sheet.${fmt}`:`passport-sheet-${i+1}.${fmt}`;
+        let blob;
+        if(fmt==='png') blob=await (await fetch(pages[i])).blob(); // server PNG, already 300 DPI
+        else blob=await buildA4Image([{src:pages[i],x:0,y:0,w:A4_MM.w,h:A4_MM.h}],'jpg');
+        files.push({blob,name});
+      }
+      return files;
+    }
+    function setSheetBusy(busy){
+      loading.classList.toggle('hidden',!busy);
+      generateBtn.disabled=busy;directDownloadBtn.disabled=busy;
+      document.querySelectorAll('.sheet-dl').forEach(b=>b.disabled=busy);
+    }
+    async function downloadSheet(fmt){
+      if(!photos.length){showNotification("Please upload at least one photo.");return;}
+      setSheetBusy(true);
+      try{
+        const pages=await fetchSheetPages();
+        await downloadFiles(await sheetFiles(pages,fmt));
+        showNotification(pages.length>1&&fmt!=='pdf'?`${pages.length} pages downloaded!`:`${FMT_LABEL[fmt]} downloaded!`,false);
+      }catch(e){showNotification(e.message||"Processing failed. Try again.");}
+      finally{setSheetBusy(false);}
+    }
+    generateBtn.addEventListener('click',async()=>{
+      if(!photos.length){showNotification("Please upload at least one photo.");return;}
+      setSheetBusy(true);sheetDownloads.classList.add('hidden');sheetPreview.classList.add('hidden');
+      try{
+        const pages=await fetchSheetPages();
+        sheetPreview.innerHTML='';
+        pages.forEach((src,i)=>{
+          const img=document.createElement('img');
+          img.src=src;img.alt=`Sheet page ${i+1}`;
+          img.className='w-full max-w-xl mx-auto bg-white rounded-lg shadow-lg';
+          sheetPreview.appendChild(img);
+        });
+        sheetPreview.classList.remove('hidden');sheetDownloads.classList.remove('hidden');
+        showNotification(pages.length>1?`Sheet ready — ${pages.length} pages.`:"Sheet ready!",false);
+      }catch(e){showNotification(e.message||"Processing failed. Try again.");}
+      finally{setSheetBusy(false);}
     });
+    directDownloadBtn.addEventListener('click',()=>downloadSheet(selectedFmt));
+    document.querySelectorAll('.sheet-dl').forEach(b=>b.addEventListener('click',()=>downloadSheet(b.dataset.fmt)));
+    updateFormatLabels();
+
+    // ─── Aadhaar / PAN / Certificate: direct + PNG / JPG downloads ───
+    const SCANNER_SHEETS={
+      ad:{name:'aadhaar',warn:'Crop both sides first',ready:()=>adFront.croppedDataURL&&adBack.croppedDataURL,layout:async()=>aadhaarLayout(adFront.croppedDataURL,adBack.croppedDataURL)},
+      pn:{name:'pan',warn:'Crop card first',ready:()=>pn.croppedDataURL,layout:async()=>panLayout(pn.croppedDataURL)},
+      ct:{name:'certificate',warn:'Crop certificate first',ready:()=>ct.croppedDataURL,layout:()=>certificateLayout(ct.croppedDataURL)},
+    };
+    async function scannerDownload(key,fmt){
+      const sheet=SCANNER_SHEETS[key];
+      if(!sheet.ready()){scToast(sheet.warn,'warn');return;}
+      try{
+        const items=await sheet.layout();
+        const blob=fmt==='pdf'?buildA4Pdf(items):await buildA4Image(items,fmt);
+        downloadPdfBlob(blob,`${sheet.name}.${fmt}`);
+        scToast(`${fmt.toUpperCase()} downloaded ✓`,'ok');
+      }catch(e){scToast('Export failed. Try again.','warn');}
+    }
+    document.querySelectorAll('.sc-direct, .sc-dl').forEach(b=>b.addEventListener('click',()=>scannerDownload(b.dataset.sheet,b.dataset.fmt)));
     function setSelectedColor(hex){document.getElementById('bgColorValue').value=hex;document.getElementById('selectedColorPreview').style.background=hex;document.getElementById('customBgColor').value=hex;document.querySelectorAll('.bg-color-btn').forEach(btn=>{const m=btn.dataset.color===hex;btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);});}
     document.querySelectorAll('.bg-color-btn').forEach(btn=>btn.addEventListener('click',()=>setSelectedColor(btn.dataset.color)));
     document.getElementById('customBgColor').addEventListener('input',e=>{document.querySelectorAll('.bg-color-btn').forEach(b=>{b.classList.remove('ring-blue-400','border-blue-400');b.classList.add('ring-transparent','border-transparent');});document.getElementById('bgColorValue').value=e.target.value;document.getElementById('selectedColorPreview').style.background=e.target.value;});

@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file
+from flask import Flask, request, render_template, send_file, jsonify
 from PIL import Image, ImageOps
 from io import BytesIO
 from dotenv import load_dotenv
@@ -6,6 +6,8 @@ from flask_cors import CORS
 import requests
 import os
 import random
+import base64
+import zipfile
 
 load_dotenv()
 
@@ -184,6 +186,45 @@ def process():
 
     pages.append(current_page)
     print(f"DEBUG: Total pages = {len(pages)}")
+
+    # format: pdf (default) | png | jpg | pages (JSON of base64 PNG pages, used by the UI
+    # so PDF/PNG/JPG can all be built client-side from a single remove.bg pass)
+    fmt = request.form.get("format", "pdf").lower()
+    if fmt == "jpeg":
+        fmt = "jpg"
+
+    if fmt == "pages":
+        encoded = []
+        for page in pages:
+            buf = BytesIO()
+            page.save(buf, format="PNG", dpi=(300, 300), compress_level=3)
+            encoded.append("data:image/png;base64," + base64.b64encode(buf.getvalue()).decode())
+        return jsonify(pages=encoded)
+
+    if fmt in ("png", "jpg"):
+        pil_fmt = "PNG" if fmt == "png" else "JPEG"
+        mime = "image/png" if fmt == "png" else "image/jpeg"
+
+        def encode(page):
+            buf = BytesIO()
+            if pil_fmt == "JPEG":
+                page.save(buf, format=pil_fmt, dpi=(300, 300), quality=95)
+            else:
+                page.save(buf, format=pil_fmt, dpi=(300, 300))
+            buf.seek(0)
+            return buf
+
+        if len(pages) == 1:
+            return send_file(encode(pages[0]), mimetype=mime, as_attachment=True,
+                             download_name=f"passport-sheet.{fmt}")
+
+        zbuf = BytesIO()
+        with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for n, page in enumerate(pages, 1):
+                zf.writestr(f"passport-sheet-{n}.{fmt}", encode(page).getvalue())
+        zbuf.seek(0)
+        return send_file(zbuf, mimetype="application/zip", as_attachment=True,
+                         download_name=f"passport-sheet-{fmt}.zip")
 
     output = BytesIO()
     if len(pages) == 1:
