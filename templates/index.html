@@ -899,6 +899,9 @@
     function ch(c) { return c._cssH || c.height; }
     const PT_LABELS = ['TL','TR','BR','BL'];
     const DRAG_R = 22;
+    // While corners are still being placed, only grab an existing corner if the click is right on it,
+    // so a new corner close to another one still gets placed.
+    const grabR = pts => pts.length < 4 ? 10 : DRAG_R;
 
     function adMakeSide(prefix, canvasId, wrapId, labelId, fileId, instrId, ptsId, chipPfx, badgeId, resetId, skipId, rotateId, cropId, bcId, bSlId, bValId, cSlId, cValId, bcResetId, stripId, stripLblId, imgId) {
       return {
@@ -997,7 +1000,7 @@
 
     function adFindNearest(pts, pos) {
       let minD = Infinity, idx = -1;
-      pts.forEach((p,i) => { const d = Math.hypot(p.x-pos.x, p.y-pos.y); if (d < DRAG_R && d < minD) { minD=d; idx=i; } });
+      const R = grabR(pts); pts.forEach((p,i) => { const d = Math.hypot(p.x-pos.x, p.y-pos.y); if (d < R && d < minD) { minD=d; idx=i; } });
       return idx;
     }
 
@@ -1632,7 +1635,7 @@
     }
     function pnFindNearest(pos) {
       let minD=Infinity,idx=-1;
-      pn.points.forEach((p,i)=>{const d=Math.hypot(p.x-pos.x,p.y-pos.y);if(d<DRAG_R&&d<minD){minD=d;idx=i;}});
+      const R=grabR(pn.points);pn.points.forEach((p,i)=>{const d=Math.hypot(p.x-pos.x,p.y-pos.y);if(d<R&&d<minD){minD=d;idx=i;}});
       return idx;
     }
     pn.canvas.addEventListener('mousedown',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;startSlowDrag(pn,near,pos);return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set — press Crop','ok');}});
@@ -1851,7 +1854,7 @@
       let minD = Infinity, idx = -1;
       ct.points.forEach((p, i) => {
         const d = Math.hypot(p.x - pos.x, p.y - pos.y);
-        if (d < DRAG_R && d < minD) { minD = d; idx = i; }
+        if (d < grabR(ct.points) && d < minD) { minD = d; idx = i; }
       });
       return idx;
     }
@@ -2573,7 +2576,7 @@
         if (!c || !s.originalImage || c.style.display === 'none') return hide();
         const r = c.getBoundingClientRect(), sx = cw(c) / r.width, sy = ch(c) / r.height;
         let pos = { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
-        const near = s.points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < DRAG_R);
+        const near = s.points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < grabR(s.points));
         if (s.draggingIdx !== -1 && s.points[s.draggingIdx]) pos = { x: s.points[s.draggingIdx].x, y: s.points[s.draggingIdx].y }; // slow drag: follow the corner
         if (!e._kb) { // real pointer: this canvas gets the keyboard; hovering = placement cursor
           kbTarget = t;
@@ -2734,6 +2737,10 @@
         c.addEventListener('pointercancel', hide);
       });
       window.addEventListener('scroll', hide, { passive: true });
+      const endAllDrags = () => targets.forEach(t => {
+        const s = t.st(); if (s && s.draggingIdx !== -1) { s.draggingIdx = -1; s._drag = null; t.chips(); }
+      });
+      ['mouseup', 'touchend', 'touchcancel', 'pointerup', 'pointercancel', 'blur'].forEach(ev => window.addEventListener(ev, endAllDrags));
     })();
   </script>
 </body>
