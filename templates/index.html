@@ -115,6 +115,8 @@
     .sc-gen-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: var(--text); }
     .sc-gen-sub { font-size: 0.78rem; color: var(--text-dim); }
     .sc-gen-btns { display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center; }
+    .sc-bc-round { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.5rem; font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #9a9ab0; cursor: pointer; }
+    .sc-bc-round input { accent-color: #f59e0b; }
     .sc-direct-lbl { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #6b6b80; margin-left: 0.25rem; }
     .fmt-btn.active, .q-btn.active { background: #2563eb; border-color: #3b82f6; color: #fff; }
 
@@ -254,6 +256,7 @@
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>◐ Contrast</span><span id="adjContrastVal">100</span></div><input type="range" id="adjContrast" min="50" max="150" value="100" class="adj-slider w-full accent-blue-500"/></div>
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>🎨 Saturation</span><span id="adjSaturationVal">100</span></div><input type="range" id="adjSaturation" min="0" max="200" value="100" class="adj-slider w-full accent-blue-500"/></div>
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>🔀 Blend with background colour</span><span id="adjBlendVal">20</span></div><input type="range" id="adjBlend" min="0" max="100" value="20" class="adj-slider w-full accent-blue-500"/></div>
+              <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none pt-1" title="Round the corners of every photo (2 mm)"><input type="checkbox" id="adjRound" class="w-4 h-4 accent-blue-500"/> Rounded corners</label>
               <div class="flex justify-end pt-1"><button id="adjReset" class="text-xs text-gray-400 hover:text-gray-200 border border-gray-600 rounded-lg px-3 py-1.5">Reset adjustments</button></div>
             </div>
           </div>
@@ -359,6 +362,7 @@
                 <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="adFrontBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="adFrontBrightVal">100</span></div>
                 <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="adFrontContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="adFrontContrVal">100</span></div>
                 <button class="sc-bc-reset" id="adFrontBcReset">reset</button>
+              <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="ad" checked> Rounded corners</label>
               </div>
               <div class="sc-preview-strip" id="adFrontStrip">
                 <div class="sc-preview-lbl" id="adFrontStripLbl">✓ Front Cropped</div>
@@ -396,6 +400,7 @@
                 <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="adBackBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="adBackBrightVal">100</span></div>
                 <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="adBackContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="adBackContrVal">100</span></div>
                 <button class="sc-bc-reset" id="adBackBcReset">reset</button>
+              <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="ad" checked> Rounded corners</label>
               </div>
               <div class="sc-preview-strip" id="adBackStrip">
                 <div class="sc-preview-lbl" id="adBackStripLbl">✓ Back Cropped</div>
@@ -415,7 +420,6 @@
             </div>
             <div class="sc-gen-btns">
               <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;" title="Brightness/contrast changes on one side are copied to the other"><input type="checkbox" id="adLinkBC" checked style="accent-color:#7c3aed;"> Same adjustments both sides</label>
-              <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="ad" checked style="accent-color:#f59e0b;"> Rounded corners</label>
               <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;"><input type="checkbox" class="sc-enhance" data-sheet="ad" checked style="accent-color:#22c55e;"> Auto-enhance</label>
               <button class="sc-btn primary" id="adGenerate" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -508,6 +512,7 @@
               <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="pnBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="pnBrightVal">100</span></div>
               <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="pnContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="pnContrVal">100</span></div>
               <button class="sc-bc-reset" id="pnBcReset">reset</button>
+              <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="pn" checked> Rounded corners</label>
             </div>
             <div class="sc-preview-strip" id="pnStrip">
               <div class="sc-preview-lbl" id="pnStripLbl">✓ PAN Card Cropped</div>
@@ -525,7 +530,6 @@
               <div class="sc-gen-sub">PAN card printed photocopy-style on A4 (multiple copies per page).</div>
             </div>
             <div class="sc-gen-btns">
-              <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="pn" checked style="accent-color:#f59e0b;"> Rounded corners</label>
               <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;"><input type="checkbox" class="sc-enhance" data-sheet="pn" checked style="accent-color:#22c55e;"> Auto-enhance</label>
               <button class="sc-btn primary" id="pnGenerate" disabled style="background:linear-gradient(135deg,#92400e,#d97706);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -1349,6 +1353,14 @@
     const isEnhanceOn = key => { const el = document.querySelector(`.sc-enhance[data-sheet="${key}"]`); return !el || el.checked; };
     // Real ID-card corners (ISO/IEC 7810 ID-1: 3.18 mm radius on 85.6 x 54 mm) + faint cutting outline
     const isRoundOn = key => { const el = document.querySelector(`.sc-round[data-sheet="${key}"]`); return !!el && el.checked; };
+    function roundRectPath(x, L, T, W, H, rx, ry) {
+      const k = 0.5523, R = L + W, B = T + H, a = Math.min(rx, W / 2), b = Math.min(ry, H / 2);
+      x.beginPath(); x.moveTo(L + a, T); x.lineTo(R - a, T);
+      x.bezierCurveTo(R - a + a * k, T, R, T + b - b * k, R, T + b); x.lineTo(R, B - b);
+      x.bezierCurveTo(R, B - b + b * k, R - a + a * k, B, R - a, B); x.lineTo(L + a, B);
+      x.bezierCurveTo(L + a - a * k, B, L, B - b + b * k, L, B - b); x.lineTo(L, T + b);
+      x.bezierCurveTo(L, T + b - b * k, L + a - a * k, T, L + a, T); x.closePath();
+    }
     function roundCard(src) {
       const w = src.width, h = src.height, rx = w * 3.18 / 85.6, ry = h * 3.18 / 54;
       const out = document.createElement('canvas'); out.width = w; out.height = h;
@@ -1970,7 +1982,16 @@
     function getAdjust(){
       const v=id=>parseInt(document.getElementById(id).value);
       return {brightness:v('adjBrightness'),contrast:v('adjContrast'),saturation:v('adjSaturation'),blend:v('adjBlend'),
-        bg:document.getElementById('bgColorValue').value||'#FFFFFF',enhance:document.getElementById('enhanceToggle').checked};
+        bg:document.getElementById('bgColorValue').value||'#FFFFFF',enhance:document.getElementById('enhanceToggle').checked,round:document.getElementById('adjRound').checked};
+    }
+    // Photo with optional border and rounded corners (2 mm radius). transparent=true leaves corners see-through.
+    function framePhoto(ph,bp,round,r,transparent){
+      const W=ph.width+2*bp,H=ph.height+2*bp,c=mkCanvas(W,H),x=c.getContext('2d');
+      if(!round){if(bp){x.fillStyle='#000';x.fillRect(0,0,W,H);}x.drawImage(ph,bp,bp);return c;}
+      if(!transparent){x.fillStyle='#fff';x.fillRect(0,0,W,H);}
+      if(bp){x.fillStyle='#000';roundRectPath(x,0,0,W,H,r+bp,r+bp);x.fill();}
+      x.save();roundRectPath(x,bp,bp,ph.width,ph.height,r,r);x.clip();x.drawImage(ph,bp,bp);x.restore();
+      return c;
     }
     function mkCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
     function renderPassportPhoto(cut,outW,outH,a){
@@ -2005,7 +2026,8 @@
       downloadPhotoBtn.textContent='Processing...';
       try{
         const cut=await getCutout(photo);
-        const canvas=renderPassportPhoto(cut,cut.naturalWidth||cut.width,cut.naturalHeight||cut.height,getAdjust());
+        const adj=getAdjust(),base=renderPassportPhoto(cut,cut.naturalWidth||cut.width,cut.naturalHeight||cut.height,adj);
+        const canvas=framePhoto(base,0,adj.round,base.width*2/32.4,fmt==='png');
         // tag DPI so the file prints at passport size (photo width = 383 px @ 300 DPI)
         const blob=await setImageDpi(await canvasToBlob(canvas,fmt),fmt,Math.round(canvas.width/(383/300)));
         downloadPdfBlob(blob,`photo-${photos.indexOf(photo)+1}.${fmt}`);
@@ -2091,7 +2113,8 @@
       const pasteW=Math.floor((A4W-2*MX-(PER_ROW-1)*HG)/PER_ROW), photoW=Math.max(1,pasteW-2*border), pasteH=photoH+2*border;
       const k=qDpi()/300, adj=getAdjust();
       const cuts=await Promise.all(photos.map(getCutout));
-      const rendered=cuts.map(c=>renderPassportPhoto(c,Math.round(photoW*k),Math.round(photoH*k),adj));
+      const rmm=2/25.4*300*k; // 2 mm corner radius in px
+      const rendered=cuts.map(c=>framePhoto(renderPassportPhoto(c,Math.round(photoW*k),Math.round(photoH*k),adj),Math.round(border*k),adj.round,rmm,false));
       const pages=[[]];let x=MX,y=MY;
       photos.forEach((p,i)=>{
         const copies=clampInt(p.copies,1,54,6);
@@ -2112,8 +2135,7 @@
       x.fillStyle='#fff';x.fillRect(0,0,p.w,p.h);
       const {border:b,photoW:w,photoH:h}=sheet;
       for(const it of sheet.pages[pi]){
-        if(b){x.fillStyle='#000';x.fillRect(it.x*s,it.y*s,(w+2*b)*s,(h+2*b)*s);}
-        x.drawImage(sheet.photos[it.i],(it.x+b)*s,(it.y+b)*s,w*s,h*s);
+        x.drawImage(sheet.photos[it.i],it.x*s,it.y*s,(w+2*b)*s,(h+2*b)*s);
       }
       return c;
     }
@@ -2126,8 +2148,7 @@
         sheet.pages.forEach((page,pi)=>{
           if(pi) doc.addPage('a4','portrait');
           for(const it of page){
-            if(b){doc.setFillColor(0,0,0);doc.rect(mm(it.x),mm(it.y),mm(w+2*b),mm(h+2*b),'F');}
-            doc.addImage(data[it.i],'JPEG',mm(it.x+b),mm(it.y+b),mm(w),mm(h),`photo${it.i}`);
+            doc.addImage(data[it.i],'JPEG',mm(it.x),mm(it.y),mm(w+2*b),mm(h+2*b),`photo${it.i}`);
           }
         });
         return [{blob:doc.output('blob'),name:'passport-sheet.pdf'}];
@@ -2200,7 +2221,8 @@
         if(!hasCutout(photo)){livePreviewBtn.innerHTML='Removing background…';}
         const cut=await getCutout(photo);
         const out=renderPassportPhoto(cut,w,hk,getAdjust());
-        livePreview.width=w;livePreview.height=hk;livePreview.getContext('2d').drawImage(out,0,0);
+        const shown=framePhoto(out,0,getAdjust().round,w*2/32.4,true);
+        livePreview.width=w;livePreview.height=hk;const lx=livePreview.getContext('2d');lx.clearRect(0,0,w,hk);lx.drawImage(shown,0,0);
         livePreview.style.objectFit='contain';
         livePreview.classList.remove('hidden');livePreviewBtn.classList.add('hidden');
       }catch(e){
@@ -2226,6 +2248,7 @@
     });
     ['enhanceToggle','height','border'].forEach(id=>document.getElementById(id).addEventListener('input',schedulePreview));
     document.getElementById('enhanceToggle').addEventListener('change',schedulePreview);
+    document.getElementById('adjRound').addEventListener('change',schedulePreview);
 
     document.querySelectorAll('.q-btn').forEach(btn=>btn.addEventListener('click',()=>{
       if(printQuality===btn.dataset.q) return;
@@ -2258,6 +2281,7 @@
     }
     document.querySelectorAll('.sc-enhance, .sc-round').forEach(cb=>cb.addEventListener('change',()=>{
       const k=cb.dataset.sheet;
+      if(cb.classList.contains('sc-round')) document.querySelectorAll(`.sc-round[data-sheet="${k}"]`).forEach(o=>o.checked=cb.checked);
       if(k==='ad') [adFront,adBack].forEach(s=>{if(s._rawCanvas) adBakeAdjusted(s);});
       if(k==='pn'&&pn._rawCanvas) pnBakeAdjusted();
       if(k==='ct'&&ct._rawCanvas) ctBakeAdjusted();
