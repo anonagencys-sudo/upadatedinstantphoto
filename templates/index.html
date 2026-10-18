@@ -2556,10 +2556,9 @@
         if (i === -1 || !nb.length) return;
         const x = t.canvas().getContext('2d');
         const tg = rectTarget(s);
-        if (tg) { // clean view: just the 90° target
-          x.save(); x.setLineDash([4, 3]); x.lineWidth = 2; x.strokeStyle = '#ffffff';
-          x.beginPath(); x.arc(tg.x, tg.y, 9, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);
-          x.fillStyle = AD_COLORS[i]; x.beginPath(); x.arc(tg.x, tg.y, 2.5, 0, Math.PI * 2); x.fill();
+        if (tg) { // last corner: only the two lines joining it to its neighbours (e.g. BL→TL and BL→BR)
+          x.save(); x.strokeStyle = AD_COLORS[i]; x.lineWidth = 1.5;
+          nb.forEach(p => { x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(pos.x, pos.y); x.stroke(); });
           x.restore(); return;
         }
         x.save(); x.strokeStyle = AD_COLORS[i]; x.lineWidth = 1.5;
@@ -2608,29 +2607,12 @@
         const { i: act, nb } = activeEdges(s), nextIdx = act === -1 ? 3 : act;
         const C = L / 2, ppo = L / (half * 2) / s.scale; // loupe px per on-screen-canvas px
         const tg = rectTarget(s);
-        if (tg) {
-          // clean view for the last corner: only the 90° target where a perfect rectangle would close
-          let tx = C + (tg.x - pos.x) * ppo, ty = C + (tg.y - pos.y) * ppo;
-          const dist = Math.hypot(tx - C, ty - C), maxR = L / 2 - 26;
-          if (dist > maxR) { // off-loupe: arrow on the rim pointing to it
-            const ux = (tx - C) / dist, uy = (ty - C) / dist, ax = C + ux * maxR, ay = C + uy * maxR;
-            lx.fillStyle = '#ffffff'; lx.strokeStyle = 'rgba(0,0,0,0.7)'; lx.lineWidth = 3;
-            lx.beginPath(); lx.moveTo(ax + ux * 16, ay + uy * 16); lx.lineTo(ax - uy * 11, ay + ux * 11); lx.lineTo(ax + uy * 11, ay - ux * 11); lx.closePath(); lx.stroke(); lx.fill();
-          } else {
-            lx.setLineDash([7, 5]); lx.lineWidth = 5; lx.strokeStyle = 'rgba(0,0,0,0.7)';
-            lx.beginPath(); lx.arc(tx, ty, 18, 0, Math.PI * 2); lx.stroke();
-            lx.lineWidth = 2.5; lx.strokeStyle = '#ffffff'; lx.stroke(); lx.setLineDash([]);
-            lx.fillStyle = AD_COLORS[nextIdx]; lx.beginPath(); lx.arc(tx, ty, 4, 0, Math.PI * 2); lx.fill();
-            lx.font = 'bold 18px Space Mono, monospace'; lx.textAlign = 'left';
-            lx.fillStyle = 'rgba(0,0,0,0.7)'; lx.fillText('90°', tx + 23, ty - 13); lx.fillStyle = '#ffffff'; lx.fillText('90°', tx + 22, ty - 14);
-          }
-        }
-        if (!tg) nb.forEach(p => {
+        nb.forEach(p => { // edges to the neighbouring corners (last corner: only these two lines)
           const dx = (p.x - pos.x) * ppo, dy = (p.y - pos.y) * ppo, len = Math.hypot(dx, dy) || 1;
           const ux = dx / len, uy = dy / len, far = L; // run the edge through the whole loupe
           lx.lineCap = 'round';
           lx.strokeStyle = 'rgba(0,0,0,0.7)'; lx.lineWidth = 6;
-          lx.beginPath(); lx.moveTo(C - ux * far * 0.15, C - uy * far * 0.15); lx.lineTo(C + ux * far, C + uy * far); lx.stroke();
+          lx.beginPath(); lx.moveTo(C, C); lx.lineTo(C + ux * far, C + uy * far); lx.stroke(); // starts at the corner (no overshoot)
           lx.strokeStyle = AD_COLORS[nextIdx]; lx.lineWidth = 2.5; lx.stroke();
         });
         // dashed 90° reference from this point: where the other edge should run for a square corner
