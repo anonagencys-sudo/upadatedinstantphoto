@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, send_file, jsonify
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 from io import BytesIO
 from dotenv import load_dotenv
 from flask_cors import CORS
@@ -70,10 +70,30 @@ def remove_background_image(input_image_bytes):
     return img.convert("RGBA")
 
 
-def process_single_image(input_image_bytes, bg_color_rgb=(255, 255, 255)):
+def enhance_subject(rgba):
+    """Auto-level tones and lift colour on the person only (alpha masks out the removed bg)."""
+    alpha = rgba.getchannel("A")
+    mask = alpha.point(lambda a: 255 if a > 128 else 0)
+    rgb = rgba.convert("RGB")
+    if mask.getbbox():
+        rgb = ImageOps.autocontrast(rgb, cutoff=0.5, mask=mask, preserve_tone=True)
+    rgb = ImageEnhance.Color(rgb).enhance(1.06)
+    rgb = ImageEnhance.Contrast(rgb).enhance(1.04)
+    out = rgb.convert("RGBA")
+    out.putalpha(alpha)
+    return out
+
+
+def sharpen_for_print(img):
+    return img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=70, threshold=2))
+
+
+def process_single_image(input_image_bytes, bg_color_rgb=(255, 255, 255), enhance=True):
     """Remove background and apply chosen background colour."""
 
     img = remove_background_image(input_image_bytes)
+    if enhance:
+        img = enhance_subject(img)
 
     if img.mode in ("RGBA", "LA"):
         background = Image.new("RGB", img.size, bg_color_rgb)
@@ -114,6 +134,7 @@ def process():
     border = int(request.form.get("border", 2))
     bg_color_hex = request.form.get("bg_color", "#FFFFFF")
     bg_color_rgb = hex_to_rgb(bg_color_hex)
+    enhance = request.form.get("enhance", "1") not in ("0", "false", "off")
     margin_x = 40
     margin_y = 20
     horizontal_gap = 15
@@ -147,8 +168,11 @@ def process():
     for idx, (img_bytes, copies) in enumerate(images_data):
         print(f"DEBUG: Processing image {idx + 1} with {copies} copies")
         try:
-            img = process_single_image(img_bytes, bg_color_rgb)
-            img = img.resize((passport_width, passport_height), Image.LANCZOS)
+            img = process_single_image(img_bytes, bg_color_rgb, enhance)
+            # crop-to-fit instead of stretching, keeping the face area (upper middle)
+            img = ImageOps.fit(img, (passport_width, passport_height), Image.LANCZOS, centering=(0.5, 0.4))
+            if enhance:
+                img = sharpen_for_print(img)
             img = ImageOps.expand(img, border=border, fill="black")
             passport_images.append((img, copies))
         except ValueError as e:
@@ -228,12 +252,13 @@ def process():
 
     output = BytesIO()
     if len(pages) == 1:
-        pages[0].save(output, format="PDF", dpi=(300, 300))
+        pages[0].save(output, format="PDF", dpi=(300, 300), quality=95)
     else:
         pages[0].save(
             output,
             format="PDF",
             dpi=(300, 300),
+            quality=95,
             save_all=True,
             append_images=pages[1:],
         )

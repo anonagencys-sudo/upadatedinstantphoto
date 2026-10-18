@@ -236,6 +236,30 @@
           <input type="hidden" id="bgColorValue" value="#FFFFFF" />
         </div>
 
+        <!-- Adjust & live preview -->
+        <div id="adjustPanel" class="mt-6 bg-gray-900/50 p-5 rounded-xl border border-gray-700">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <p class="text-sm font-semibold text-gray-200">Adjust &amp; Live Preview</p>
+            <span class="text-xs text-gray-500">Colour, brightness &amp; contrast apply to every photo on the sheet</span>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-6">
+            <div class="flex-shrink-0 mx-auto flex flex-col items-center gap-2">
+              <div class="w-40 h-[200px] rounded-lg border border-gray-600 bg-gray-800 flex items-center justify-center overflow-hidden">
+                <canvas id="livePreview" class="hidden w-full h-full"></canvas>
+                <button id="livePreviewBtn" class="text-xs text-blue-300 hover:text-blue-200 px-3 text-center leading-relaxed">Show live preview<br/><span class="text-gray-500">(background removed once,<br/>reused for the sheet)</span></button>
+              </div>
+              <select id="livePreviewPick" class="hidden w-40 bg-gray-700 border border-gray-600 rounded-lg p-1.5 text-xs"></select>
+            </div>
+            <div class="flex-1 space-y-3">
+              <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>☀ Brightness</span><span id="adjBrightnessVal">100</span></div><input type="range" id="adjBrightness" min="50" max="150" value="100" class="adj-slider w-full accent-blue-500"/></div>
+              <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>◐ Contrast</span><span id="adjContrastVal">100</span></div><input type="range" id="adjContrast" min="50" max="150" value="100" class="adj-slider w-full accent-blue-500"/></div>
+              <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>🎨 Saturation</span><span id="adjSaturationVal">100</span></div><input type="range" id="adjSaturation" min="0" max="200" value="100" class="adj-slider w-full accent-blue-500"/></div>
+              <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>🔀 Blend with background colour</span><span id="adjBlendVal">20</span></div><input type="range" id="adjBlend" min="0" max="100" value="20" class="adj-slider w-full accent-blue-500"/></div>
+              <div class="flex justify-end pt-1"><button id="adjReset" class="text-xs text-gray-400 hover:text-gray-200 border border-gray-600 rounded-lg px-3 py-1.5">Reset adjustments</button></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Advanced Options -->
         <div class="mt-6 space-y-4">
           <div class="text-center">
@@ -254,6 +278,9 @@
             <button class="fmt-btn active text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 transition-all" data-fmt="pdf">PDF</button>
             <button class="fmt-btn text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 transition-all" data-fmt="png">PNG</button>
             <button class="fmt-btn text-sm font-semibold px-4 py-1.5 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 transition-all" data-fmt="jpg">JPG</button>
+            <label class="ml-4 flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none" title="Auto-levels, colour lift and print sharpening">
+              <input type="checkbox" id="enhanceToggle" checked class="w-4 h-4 accent-blue-500"/> Auto-enhance
+            </label>
           </div>
           <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <button id="generateBtn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105 glow-shadow disabled:opacity-50 disabled:cursor-not-allowed">Generate &amp; Preview</button>
@@ -388,6 +415,8 @@
               <div class="sc-gen-sub">Both sides laid out photocopy-style on A4.</div>
             </div>
             <div class="sc-gen-btns">
+              <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;" title="Brightness/contrast changes on one side are copied to the other"><input type="checkbox" id="adLinkBC" checked style="accent-color:#7c3aed;"> Same adjustments both sides</label>
+              <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;"><input type="checkbox" class="sc-enhance" data-sheet="ad" checked style="accent-color:#22c55e;"> Auto-enhance</label>
               <button class="sc-btn primary" id="adGenerate" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 Generate PDF
@@ -496,6 +525,7 @@
               <div class="sc-gen-sub">PAN card printed photocopy-style on A4 (multiple copies per page).</div>
             </div>
             <div class="sc-gen-btns">
+              <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;"><input type="checkbox" class="sc-enhance" data-sheet="pn" checked style="accent-color:#22c55e;"> Auto-enhance</label>
               <button class="sc-btn primary" id="pnGenerate" disabled style="background:linear-gradient(135deg,#92400e,#d97706);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 Generate PDF
@@ -598,6 +628,7 @@
               <div class="sc-gen-sub">Certificate fitted to the full A4 page like a marksheet print.</div>
             </div>
             <div class="sc-gen-btns">
+              <label class="sc-direct-lbl" style="display:inline-flex;align-items:center;gap:0.35rem;cursor:pointer;margin-right:0.25rem;"><input type="checkbox" class="sc-enhance" data-sheet="ct" checked style="accent-color:#22c55e;"> Auto-enhance</label>
               <button class="sc-btn primary" id="ctGenerate" disabled style="background:linear-gradient(135deg,#166534,#22c55e);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 Generate PDF
@@ -1019,7 +1050,7 @@
       const tmp = document.createElement('canvas'); tmp.width = src.width; tmp.height = src.height;
       const ctx = tmp.getContext('2d');
       ctx.filter = `brightness(${side.brightness}%) contrast(${side.contrast}%)`; ctx.drawImage(src,0,0); ctx.filter='none';
-      side.croppedDataURL = tmp.toDataURL('image/jpeg', 0.97); adUpdateGenerateBtn();
+      adPdfBlob = null; scheduleBake(side, 'ad', () => tmp, adUpdateGenerateBtn);
     }
 
     function adFinaliseCrop(side, rawCanvas, label) {
@@ -1080,16 +1111,24 @@
     document.getElementById('adBackSkip').addEventListener('click',  () => adSkipSide(adBack));
 
     function adSetupBC(side) {
-      const applyFilter = () => {
+      const applyFilter = (fromLink) => {
         side.brightness = parseInt(document.getElementById(side.bSlId).value);
         side.contrast   = parseInt(document.getElementById(side.cSlId).value);
         document.getElementById(side.bValId).textContent = side.brightness;
         document.getElementById(side.cValId).textContent = side.contrast;
         document.getElementById(side.imgId).style.filter = `brightness(${side.brightness}%) contrast(${side.contrast}%)`;
         if (side._rawCanvas) adBakeAdjusted(side);
+        const link = document.getElementById('adLinkBC');
+        if (fromLink !== true && link && link.checked) {
+          const other = side === adFront ? adBack : adFront;
+          document.getElementById(other.bSlId).value = side.brightness;
+          document.getElementById(other.cSlId).value = side.contrast;
+          if (other._applyBC) other._applyBC(true);
+        }
       };
-      document.getElementById(side.bSlId).addEventListener('input', applyFilter);
-      document.getElementById(side.cSlId).addEventListener('input', applyFilter);
+      side._applyBC = applyFilter;
+      document.getElementById(side.bSlId).addEventListener('input', () => applyFilter());
+      document.getElementById(side.cSlId).addEventListener('input', () => applyFilter());
       document.getElementById(side.bcResetId).addEventListener('click', () => {
         document.getElementById(side.bSlId).value = 100; document.getElementById(side.cSlId).value = 100; applyFilter(); scToast('Reset','warn');
       });
@@ -1180,6 +1219,7 @@
       canvas.width = widthPx;
       canvas.height = widthPx === A4_PX.w ? A4_PX.h : Math.round(widthPx * A4_MM.h / A4_MM.w);
       const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
       const k = widthPx / A4_MM.w;
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1222,6 +1262,89 @@
       if (h > ph) { h = ph; w = h * ratio; }
       return [{ src: docImg, x: (A4_MM.w - w) / 2, y: (A4_MM.h - h) / 2, w, h }];
     }
+    // ─── Enhancement: auto-levels + unsharp mask (run at print resolution) ───
+    function enhanceCanvas(canvas, opts = {}) {
+      const amount = opts.amount ?? 0.6, threshold = opts.threshold ?? 3;
+      const w = canvas.width, h = canvas.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const id = ctx.getImageData(0, 0, w, h), d = id.data, n = w * h;
+      // 1) auto-levels. 'channel' (documents): stretch each channel to its own 0.5–99.5% range,
+      //    which also neutralises paper tint. 'luma' (photos): one curve for all channels keeps skin tones.
+      const cut = n * 0.005;
+      const range = (hist, total = n) => { const cut = total * 0.005; let lo = 0, hi = 255, acc = 0;
+        for (; lo < 255; lo++) { acc += hist[lo]; if (acc > cut) break; }
+        acc = 0; for (; hi > 0; hi--) { acc += hist[hi]; if (acc > cut) break; }
+        return [lo, hi]; };
+      const makeLut = ([lo, hi]) => { if (hi - lo <= 32 || hi - lo >= 250) return null;
+        const lut = new Uint8ClampedArray(256), sc = 255 / (hi - lo);
+        for (let v = 0; v < 256; v++) lut[v] = (v - lo) * sc; return lut; };
+      if (opts.levels !== false) {
+        let luts;
+        if (opts.levels === 'channel') {
+          const hr = new Uint32Array(256), hg = new Uint32Array(256), hb = new Uint32Array(256);
+          for (let i = 0; i < d.length; i += 4) { hr[d[i]]++; hg[d[i + 1]]++; hb[d[i + 2]]++; }
+          luts = [makeLut(range(hr)), makeLut(range(hg)), makeLut(range(hb))];
+        } else {
+          const hl = new Uint32Array(256);
+          let count = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            if (opts.alphaMask && d[i + 3] < 200) continue; // only the person, not the transparent bg
+            hl[(d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8]++; count++;
+          }
+          const l = count > 100 ? makeLut(range(hl, count)) : null; luts = [l, l, l];
+        }
+        for (let c = 0; c < 3; c++) { const lut = luts[c]; if (!lut) continue; for (let i = c; i < d.length; i += 4) d[i] = lut[d[i]]; }
+      }
+      if (opts.sharpen === false) { ctx.putImageData(id, 0, 0); return canvas; }
+      // 2) unsharp mask: separable 3x3 box blur as integer sums (blur = sum / 9)
+      const hs = new Uint16Array(n * 3);
+      for (let y = 0; y < h; y++) {
+        const row = y * w;
+        for (let x = 0; x < w; x++) {
+          const l = (row + (x ? x - 1 : x)) * 4, m = (row + x) * 4, r = (row + (x < w - 1 ? x + 1 : x)) * 4, o = (row + x) * 3;
+          hs[o] = d[l] + d[m] + d[r]; hs[o + 1] = d[l + 1] + d[m + 1] + d[r + 1]; hs[o + 2] = d[l + 2] + d[m + 2] + d[r + 2];
+        }
+      }
+      const k = amount / 9, th9 = threshold * 9;
+      for (let y = 0; y < h; y++) {
+        const up = (y ? y - 1 : y) * w * 3, mid = y * w * 3, dn = (y < h - 1 ? y + 1 : y) * w * 3;
+        for (let x = 0, o = 0, i = y * w * 4; x < w; x++, i += 4) {
+          for (let c = 0; c < 3; c++, o++) {
+            const diff9 = d[i + c] * 9 - (hs[up + o] + hs[mid + o] + hs[dn + o]);
+            if (diff9 > th9 || diff9 < -th9) d[i + c] = d[i + c] + k * diff9;
+          }
+        }
+      }
+      ctx.putImageData(id, 0, 0);
+      return canvas;
+    }
+    // Downscale (high quality) to ~print size, enhance if enabled, encode.
+    const SCAN_MAX_PX = { ad: 1300, pn: 1300, ct: 3508 };
+    const isEnhanceOn = key => { const el = document.querySelector(`.sc-enhance[data-sheet="${key}"]`); return !el || el.checked; };
+    function finishScan(canvas, key) {
+      let out = canvas;
+      const max = SCAN_MAX_PX[key], long = Math.max(canvas.width, canvas.height);
+      if (long > max) {
+        const s = max / long;
+        out = document.createElement('canvas');
+        out.width = Math.round(canvas.width * s); out.height = Math.round(canvas.height * s);
+        const c = out.getContext('2d'); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+        c.drawImage(canvas, 0, 0, out.width, out.height);
+      }
+      if (isEnhanceOn(key)) enhanceCanvas(out, key === 'ct' ? { amount: 0.7, threshold: 3, levels: 'channel' } : { amount: 0.6, threshold: 3, levels: 'channel' });
+      return out.toDataURL('image/jpeg', 0.98);
+    }
+    // Bakes (adjust + enhance + encode) are debounced so sliders stay smooth; flushed before any export.
+    const pendingBakes = new Map();
+    function scheduleBake(obj, key, getCanvas, after) {
+      const prev = pendingBakes.get(obj);
+      if (prev) clearTimeout(prev.timer);
+      const run = () => { pendingBakes.delete(obj); obj.croppedDataURL = finishScan(getCanvas(), key); after(); };
+      pendingBakes.set(obj, { timer: setTimeout(run, 350), run });
+    }
+    function flushBakes() {
+      for (const [, p] of [...pendingBakes]) { clearTimeout(p.timer); p.run(); }
+    }
     function setDirectBtns(key, disabled) {
       document.querySelectorAll(`.sc-direct[data-sheet="${key}"]`).forEach(b => b.disabled = disabled);
     }
@@ -1234,7 +1357,7 @@
       adSetStep(3, true, true);
       return adPdfBlob;
     }
-    async function adGeneratePDF() {
+    async function adGeneratePDF() { flushBakes();
       if (!adFront.croppedDataURL || !adBack.croppedDataURL) { scToast('Crop both sides first','warn'); return; }
       scToast('Building PDF…','ok');
       await generateAadhaarPDF(adFront.croppedDataURL, adBack.croppedDataURL);
@@ -1242,7 +1365,7 @@
     }
     document.getElementById('adGenerate').addEventListener('click', adGeneratePDF);
     document.getElementById('adRegenerate').addEventListener('click', adGeneratePDF);
-    document.getElementById('adDownload').addEventListener('click', async () => {
+    document.getElementById('adDownload').addEventListener('click', async () => { flushBakes();
       if (!adPdfBlob) {
         if (!adFront.croppedDataURL || !adBack.croppedDataURL) { scToast('Crop both sides first','warn'); return; }
         scToast('Building PDF…','ok');
@@ -1350,7 +1473,7 @@
     function pnBakeAdjusted(){
       const src=pn._rawCanvas;const tmp=document.createElement('canvas');tmp.width=src.width;tmp.height=src.height;
       const ctx=tmp.getContext('2d');ctx.filter=`brightness(${pn.brightness}%) contrast(${pn.contrast}%)`;ctx.drawImage(src,0,0);ctx.filter='none';
-      pn.croppedDataURL=tmp.toDataURL('image/jpeg',0.97);pnUpdateGenerateBtn();
+      pnPdfBlob=null;scheduleBake(pn,'pn',()=>tmp,pnUpdateGenerateBtn);
     }
     function pnFinaliseCrop(rawCanvas,label){
       pn._rawCanvas=rawCanvas;pn.croppedDataURL=rawCanvas.toDataURL('image/jpeg',0.97);
@@ -1435,7 +1558,7 @@
       pnSetStep(3, true, true);
       return pnPdfBlob;
     }
-    async function pnGeneratePDF(){
+    async function pnGeneratePDF(){ flushBakes();
       if(!pn.croppedDataURL){scToast('Crop card first','warn');return;}
       scToast('Building PDF…','ok');
       await generatePanPDF(pn.croppedDataURL);
@@ -1443,7 +1566,7 @@
     }
     document.getElementById('pnGenerate').addEventListener('click',pnGeneratePDF);
     document.getElementById('pnRegenerate').addEventListener('click',pnGeneratePDF);
-    document.getElementById('pnDownload').addEventListener('click', async ()=>{
+    document.getElementById('pnDownload').addEventListener('click', async ()=>{ flushBakes();
       if(!pnPdfBlob){
         if(!pn.croppedDataURL){scToast('Crop card first','warn');return;}
         scToast('Building PDF…','ok');
@@ -1592,7 +1715,7 @@
     function ctBakeAdjusted(){
       const src=ct._rawCanvas;const tmp=document.createElement('canvas');tmp.width=src.width;tmp.height=src.height;
       const ctx=tmp.getContext('2d');ctx.filter=`brightness(${ct.brightness}%) contrast(${ct.contrast}%)`;ctx.drawImage(src,0,0);ctx.filter='none';
-      ct.croppedDataURL=tmp.toDataURL('image/jpeg',0.97);ctUpdateGenerateBtn();
+      ctPdfBlob=null;scheduleBake(ct,'ct',()=>tmp,ctUpdateGenerateBtn);
     }
     function ctFinaliseCrop(rawCanvas,label){
       ct._rawCanvas=rawCanvas;ct.croppedDataURL=rawCanvas.toDataURL('image/jpeg',0.97);
@@ -1677,7 +1800,7 @@
       ctSetStep(3, true, true);
       return ctPdfBlob;
     }
-    async function ctGeneratePDF(){
+    async function ctGeneratePDF(){ flushBakes();
       if(!ct.croppedDataURL){scToast('Crop certificate first','warn');return;}
       scToast('Building PDF...','ok');
       await generateCertificatePDF(ct.croppedDataURL);
@@ -1685,7 +1808,7 @@
     }
     document.getElementById('ctGenerate').addEventListener('click',ctGeneratePDF);
     document.getElementById('ctRegenerate').addEventListener('click',ctGeneratePDF);
-    document.getElementById('ctDownload').addEventListener('click', async ()=>{
+    document.getElementById('ctDownload').addEventListener('click', async ()=>{ flushBakes();
       if(!ctPdfBlob){
         if(!ct.croppedDataURL){scToast('Crop certificate first','warn');return;}
         scToast('Building PDF...','ok');
@@ -1737,8 +1860,10 @@
       const photo=photos.find(p=>p.id===id);
       if(!photo)return;
       const targetKey=photo.croppedFile?'croppedFile':'originalFile';
-      const rotatedFile=await rotatePhotoFile(photo[targetKey]);
+      const oldFile=photo[targetKey];
+      const rotatedFile=await rotatePhotoFile(oldFile);
       photo[targetKey]=rotatedFile;
+      if(photo.cutout&&photo.cutoutSrc===oldFile){photo.cutout=await rotateImageEl(photo.cutout);photo.cutoutSrc=rotatedFile;photo._cutoutFor=rotatedFile;photo._cutoutPromise=null;}
       if(photo.previewUrl&&photo.previewUrl.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl);
       photo.previewUrl=URL.createObjectURL(rotatedFile);
       renderPhotoList();
@@ -1749,31 +1874,75 @@
       fd.append('image',file);
       const response=await fetch((window.BACKEND_URL||'')+'/preview-photo',{method:'POST',body:fd});
       if(response.status===429) throw new Error('Quota Exceeded. Try again later.');
-      if(!response.ok) throw new Error('Background removal failed. Try again.');
+      if(!response.ok){
+        let msg='';try{msg=(await response.json()).error||'';}catch(_){}
+        if(/foreground|face/i.test(msg)) throw new Error('Cannot detect a person in one of the photos.');
+        throw new Error('Background removal failed. Try again.');
+      }
       return response.blob();
+    }
+    // One remove.bg call per photo version; reused for preview, sheet and every download format.
+    async function getCutout(photo){
+      const src=photo.croppedFile||photo.originalFile;
+      if(photo.cutout&&photo.cutoutSrc===src) return photo.cutout;
+      if(photo._cutoutPromise&&photo._cutoutFor===src) return photo._cutoutPromise;
+      photo._cutoutFor=src;
+      photo._cutoutPromise=(async()=>{
+        const blob=await removePhotoBackground(src);
+        const img=await adLoadImg(URL.createObjectURL(blob));
+        if(photo._cutoutFor===src){photo.cutout=img;photo.cutoutSrc=src;}
+        return img;
+      })();
+      try{return await photo._cutoutPromise;}catch(e){photo._cutoutPromise=null;throw e;}
+    }
+    async function rotateImageEl(img){
+      const c=document.createElement('canvas');c.width=img.naturalHeight||img.height;c.height=img.naturalWidth||img.width;
+      const x=c.getContext('2d');x.translate(c.width,0);x.rotate(Math.PI/2);x.drawImage(img,0,0);
+      return adLoadImg(c.toDataURL('image/png'));
+    }
+    // Passport photo renderer: adjustments → subject levels → blend with bg → composite → print sharpen.
+    function getAdjust(){
+      const v=id=>parseInt(document.getElementById(id).value);
+      return {brightness:v('adjBrightness'),contrast:v('adjContrast'),saturation:v('adjSaturation'),blend:v('adjBlend'),
+        bg:document.getElementById('bgColorValue').value||'#FFFFFF',enhance:document.getElementById('enhanceToggle').checked};
+    }
+    function mkCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
+    function renderPassportPhoto(cut,outW,outH,a){
+      const cw=cut.naturalWidth||cut.width,ch=cut.naturalHeight||cut.height;
+      const sc=Math.max(outW/cw,outH/ch),dw=cw*sc,dh=ch*sc,dx=(outW-dw)*0.5,dy=(outH-dh)*0.4; // cover-fit, keep face area
+      const subj=mkCanvas(outW,outH),sx=subj.getContext('2d');
+      sx.imageSmoothingEnabled=true;sx.imageSmoothingQuality='high';
+      sx.filter=`brightness(${a.brightness}%) contrast(${a.contrast}%) saturate(${a.saturation}%)`;
+      sx.drawImage(cut,dx,dy,dw,dh);sx.filter='none';
+      if(a.enhance) enhanceCanvas(subj,{levels:'luma',alphaMask:true,sharpen:false});
+      if(a.blend>0){
+        const t=a.blend/100;
+        // light wrap: background colour bleeds softly into the subject's edges
+        const wrap=mkCanvas(outW,outH),wx=wrap.getContext('2d');
+        wx.fillStyle=a.bg;wx.fillRect(0,0,outW,outH);
+        wx.globalCompositeOperation='destination-out';wx.filter=`blur(${Math.max(2,Math.round(outW*0.025))}px)`;wx.drawImage(subj,0,0);
+        sx.globalCompositeOperation='source-atop';sx.globalAlpha=Math.min(1,t*0.85);sx.drawImage(wrap,0,0);
+        // overall tone match: soft-light the bg colour over the subject
+        sx.globalCompositeOperation='soft-light';sx.globalAlpha=t*0.45;sx.fillStyle=a.bg;sx.fillRect(0,0,outW,outH);
+        sx.globalAlpha=1;sx.globalCompositeOperation='source-over';
+      }
+      const out=mkCanvas(outW,outH),ox=out.getContext('2d');
+      ox.fillStyle=a.bg;ox.fillRect(0,0,outW,outH);ox.drawImage(subj,0,0);
+      if(a.enhance) enhanceCanvas(out,{levels:false,amount:0.55,threshold:2});
+      return out;
     }
     async function downloadSinglePhoto(){
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       const fmt=selectedFmt==='png'?'png':'jpg';
-      const photo=photos[0];
-      const sourceFile=photo.croppedFile||photo.originalFile;
+      const photo=photos[livePickIndex()]||photos[0];
       downloadPhotoBtn.disabled=true;
-      downloadPhotoBtn.textContent='Removing BG...';
+      downloadPhotoBtn.textContent='Processing...';
       try{
-        const removedBgBlob=await removePhotoBackground(sourceFile);
-        const processedUrl=URL.createObjectURL(removedBgBlob);
-        const img=await adLoadImg(processedUrl);
-        URL.revokeObjectURL(processedUrl);
-        const canvas=document.createElement('canvas');
-        canvas.width=img.naturalWidth||img.width;
-        canvas.height=img.naturalHeight||img.height;
-        const ctx=canvas.getContext('2d');
-        ctx.fillStyle=document.getElementById('bgColorValue').value||'#FFFFFF';
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-        ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        const blob=await canvasToBlob(canvas,fmt);
-        downloadPdfBlob(blob,`photo-1.${fmt}`);
-        showNotification("Background removed and photo downloaded!",false);
+        const cut=await getCutout(photo);
+        const canvas=renderPassportPhoto(cut,cut.naturalWidth||cut.width,cut.naturalHeight||cut.height,getAdjust());
+        const blob=await setImageDpi(await canvasToBlob(canvas,fmt),fmt);
+        downloadPdfBlob(blob,`photo-${photos.indexOf(photo)+1}.${fmt}`);
+        showNotification("Photo downloaded!",false);
       }finally{
         downloadPhotoBtn.disabled=false;
         updateFormatLabels();
@@ -1793,6 +1962,7 @@
       photoList.querySelectorAll('.crop-btn').forEach(btn=>btn.addEventListener('click',e=>openCropper(parseInt(e.target.dataset.id))));
       photoList.querySelectorAll('.remove-btn').forEach(btn=>btn.addEventListener('click',e=>{photos=photos.filter(p=>p.id!==parseInt(e.target.dataset.id));renderPhotoList();if(photos.length===0)addMoreWrapper.classList.add('hidden');}));
       addMoreWrapper.classList.toggle('hidden',photos.length===0);
+      if(typeof refreshLivePicker==='function') refreshLivePicker();
     }
     function addFiles(files){
       const valid=['image/jpeg','image/jpg','image/png','image/webp'];let added=0;
@@ -1806,7 +1976,7 @@
     imageInput.addEventListener('change',()=>{addFiles(imageInput.files);imageInput.value='';});
     document.getElementById('addMoreBtn').addEventListener('click',()=>imageInput.click());
     function openCropper(id){const photo=photos.find(p=>p.id===id);if(!photo)return;pendingCropId=id;cropModalImage.src=photo.previewUrl;cropperModal.classList.remove('hidden');if(activeCropper)activeCropper.destroy();activeCropper=new Cropper(cropModalImage,{aspectRatio:384/472,viewMode:1,dragMode:'move',autoCropArea:1});}
-    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/png'});photo.previewUrl=URL.createObjectURL(blob);activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);},'image/png');});
+    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480,imageSmoothingEnabled:true,imageSmoothingQuality:'high'}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/png'});photo.previewUrl=URL.createObjectURL(blob);activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);},'image/png');});
     document.getElementById('cancelCropBtn').addEventListener('click',()=>{if(activeCropper){activeCropper.destroy();activeCropper=null;}pendingCropId=null;cropperModal.classList.add('hidden');});
     document.getElementById('toggleAdvanced').addEventListener('click',function(){const el=document.getElementById('advancedOptions');const visible=el.style.display==='block';el.style.display=visible?'none':'block';this.textContent=visible?'Advanced Options':'Hide Advanced Options';});
     downloadPhotoBtn.addEventListener('click',()=>{downloadSinglePhoto().catch(e=>showNotification(e&&e.message?e.message:"Could not download photo. Try again."));});
@@ -1822,48 +1992,54 @@
       document.querySelectorAll('.fmt-btn').forEach(b=>b.classList.toggle('active',b===btn));
       updateFormatLabels();
     }));
+    const clampInt=(v,lo,hi,dflt)=>{v=parseInt(v);return Number.isFinite(v)?Math.min(hi,Math.max(lo,v)):dflt;};
     function sheetKey(){
       return {
         files:photos.map(p=>p.croppedFile||p.originalFile),
-        meta:JSON.stringify([photos.map(p=>p.copies),document.getElementById('height').value,document.getElementById('border').value,document.getElementById('bgColorValue').value])
+        meta:JSON.stringify([photos.map(p=>p.copies),document.getElementById('height').value,document.getElementById('border').value,getAdjust()])
       };
     }
     const sameKey=(a,b)=>a.meta===b.meta&&a.files.length===b.files.length&&a.files.every((f,i)=>f===b.files[i]);
+    // Same A4 layout as the server: 300 DPI, 6 per row.
     async function fetchSheetPages(){
       const key=sheetKey();
       if(sheetCache&&sameKey(sheetCache.key,key)) return sheetCache.pages;
-      const fd=new FormData();
-      photos.forEach((p,i)=>{fd.append(`image_${i}`,p.croppedFile||p.originalFile);fd.append(`copies_${i}`,p.copies);});
-      fd.append('height',document.getElementById('height').value);
-      fd.append('border',document.getElementById('border').value);
-      fd.append('bg_color',document.getElementById('bgColorValue').value);
-      fd.append('format','pages');
-      const r=await fetch((window.BACKEND_URL||'')+'/process',{method:'POST',body:fd});
-      if(r.status===429) throw new Error('Quota Exceeded. Try again later.');
-      if(r.status===410) throw new Error('Cannot detect face in one of the images.');
-      if(!r.ok) throw new Error('Processing failed. Try again.');
-      const data=await r.json();
-      sheetCache={key,pages:data.pages};
-      return data.pages;
+      const A4W=2480,A4H=3508,MX=40,MY=20,HG=15,VG=12,PER_ROW=6;
+      const border=clampInt(document.getElementById('border').value,0,20,2);
+      const photoH=clampInt(document.getElementById('height').value,200,1000,480);
+      const pasteW=Math.floor((A4W-2*MX-(PER_ROW-1)*HG)/PER_ROW), photoW=Math.max(1,pasteW-2*border), pasteH=photoH+2*border;
+      const adj=getAdjust();
+      const cuts=await Promise.all(photos.map(getCutout));
+      const pages=[];let page=null,x=MX,y=MY;
+      const newPage=()=>{page=mkCanvas(A4W,A4H);const c=page.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,A4W,A4H);pages.push(page);x=MX;y=MY;};
+      newPage();
+      photos.forEach((p,i)=>{
+        const ph=renderPassportPhoto(cuts[i],photoW,photoH,adj);
+        const copies=clampInt(p.copies,1,54,6);
+        const ctx=()=>page.getContext('2d');
+        for(let k=0;k<copies;k++){
+          if(x+pasteW>A4W-MX){x=MX;y+=pasteH+VG;}
+          if(y+pasteH>A4H-MY) newPage();
+          const c=ctx();
+          if(border){c.fillStyle='#000';c.fillRect(x,y,photoW+2*border,pasteH);}
+          c.drawImage(ph,x+border,y+border);
+          x+=pasteW+HG;
+        }
+      });
+      sheetCache={key,pages};
+      return pages;
     }
     async function sheetFiles(pages,fmt){
       if(fmt==='pdf'){
         const { jsPDF } = window.jspdf;
         const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-        for(let i=0;i<pages.length;i++){
-          if(i) doc.addPage('a4','portrait');
-          const c=await drawA4(document.createElement('canvas'),[{src:pages[i],x:0,y:0,w:A4_MM.w,h:A4_MM.h}],A4_PX.w);
-          doc.addImage(c.toDataURL('image/jpeg',0.95),'JPEG',0,0,A4_MM.w,A4_MM.h);
-        }
+        pages.forEach((c,i)=>{if(i) doc.addPage('a4','portrait');doc.addImage(c.toDataURL('image/jpeg',0.98),'JPEG',0,0,A4_MM.w,A4_MM.h);});
         return [{blob:doc.output('blob'),name:'passport-sheet.pdf'}];
       }
       const files=[];
       for(let i=0;i<pages.length;i++){
         const name=pages.length===1?`passport-sheet.${fmt}`:`passport-sheet-${i+1}.${fmt}`;
-        let blob;
-        if(fmt==='png') blob=await (await fetch(pages[i])).blob(); // server PNG, already 300 DPI
-        else blob=await buildA4Image([{src:pages[i],x:0,y:0,w:A4_MM.w,h:A4_MM.h}],'jpg');
-        files.push({blob,name});
+        files.push({blob:await setImageDpi(await canvasToBlob(pages[i],fmt),fmt),name});
       }
       return files;
     }
@@ -1888,9 +2064,9 @@
       try{
         const pages=await fetchSheetPages();
         sheetPreview.innerHTML='';
-        pages.forEach((src,i)=>{
+        pages.forEach((c,i)=>{
           const img=document.createElement('img');
-          img.src=src;img.alt=`Sheet page ${i+1}`;
+          img.src=c.toDataURL('image/jpeg',0.85);img.alt=`Sheet page ${i+1}`;
           img.className='w-full max-w-xl mx-auto bg-white rounded-lg shadow-lg';
           sheetPreview.appendChild(img);
         });
@@ -1903,6 +2079,55 @@
     document.querySelectorAll('.sheet-dl').forEach(b=>b.addEventListener('click',()=>downloadSheet(b.dataset.fmt)));
     updateFormatLabels();
 
+    // ─── Live preview: any colour / slider change re-renders instantly from the cached cutout ───
+    let liveOn=false,liveQueued=false;
+    const livePreview=document.getElementById('livePreview'),livePreviewBtn=document.getElementById('livePreviewBtn'),livePick=document.getElementById('livePreviewPick');
+    function livePickIndex(){return Math.max(0,Math.min(photos.length-1,parseInt(livePick.value)||0));}
+    function refreshLivePicker(){
+      const keep=livePick.value;
+      livePick.innerHTML=photos.map((p,i)=>`<option value="${i}">Photo ${i+1}: ${p.originalFile.name.replace(/[<>&"]/g,'')}</option>`).join('');
+      if(keep&&parseInt(keep)<photos.length) livePick.value=keep;
+      livePick.classList.toggle('hidden',!liveOn||photos.length<2);
+      if(!photos.length){liveOn=false;livePreview.classList.add('hidden');livePreviewBtn.classList.remove('hidden');}
+      else schedulePreview();
+    }
+    async function drawLivePreview(){
+      if(!liveOn||!photos.length) return;
+      const photo=photos[livePickIndex()];
+      const border=clampInt(document.getElementById('border').value,0,20,2);
+      const h=clampInt(document.getElementById('height').value,200,1000,480);
+      const w=Math.max(1,Math.floor((2480-80-75)/6)-2*border);
+      try{
+        if(!(photo.cutout&&photo.cutoutSrc===(photo.croppedFile||photo.originalFile))){livePreviewBtn.innerHTML='Removing background…';}
+        const cut=await getCutout(photo);
+        const out=renderPassportPhoto(cut,w,h,getAdjust());
+        livePreview.width=w;livePreview.height=h;livePreview.getContext('2d').drawImage(out,0,0);
+        livePreview.style.objectFit='contain';
+        livePreview.classList.remove('hidden');livePreviewBtn.classList.add('hidden');
+      }catch(e){
+        liveOn=false;livePreviewBtn.innerHTML='Show live preview';livePreviewBtn.classList.remove('hidden');livePreview.classList.add('hidden');
+        showNotification(e.message||'Preview failed.');
+      }
+    }
+    function schedulePreview(){
+      if(!liveOn||liveQueued) return;
+      liveQueued=true;requestAnimationFrame(()=>{liveQueued=false;drawLivePreview();});
+    }
+    livePreviewBtn.addEventListener('click',()=>{
+      if(!photos.length){showNotification("Please upload at least one photo.");return;}
+      liveOn=true;refreshLivePicker();
+    });
+    livePick.addEventListener('change',schedulePreview);
+    document.querySelectorAll('.adj-slider').forEach(sl=>sl.addEventListener('input',()=>{
+      document.getElementById(sl.id+'Val').textContent=sl.value;schedulePreview();
+    }));
+    document.getElementById('adjReset').addEventListener('click',()=>{
+      [['adjBrightness',100],['adjContrast',100],['adjSaturation',100],['adjBlend',20]].forEach(([id,v])=>{document.getElementById(id).value=v;document.getElementById(id+'Val').textContent=v;});
+      schedulePreview();
+    });
+    ['enhanceToggle','height','border'].forEach(id=>document.getElementById(id).addEventListener('input',schedulePreview));
+    document.getElementById('enhanceToggle').addEventListener('change',schedulePreview);
+
     // ─── Aadhaar / PAN / Certificate: direct + PNG / JPG downloads ───
     const SCANNER_SHEETS={
       ad:{name:'aadhaar',warn:'Crop both sides first',ready:()=>adFront.croppedDataURL&&adBack.croppedDataURL,layout:async()=>aadhaarLayout(adFront.croppedDataURL,adBack.croppedDataURL)},
@@ -1910,6 +2135,7 @@
       ct:{name:'certificate',warn:'Crop certificate first',ready:()=>ct.croppedDataURL,layout:()=>certificateLayout(ct.croppedDataURL)},
     };
     async function scannerDownload(key,fmt){
+      flushBakes();
       const sheet=SCANNER_SHEETS[key];
       if(!sheet.ready()){scToast(sheet.warn,'warn');return;}
       try{
@@ -1919,11 +2145,20 @@
         scToast(`${fmt.toUpperCase()} downloaded ✓`,'ok');
       }catch(e){scToast('Export failed. Try again.','warn');}
     }
+    document.querySelectorAll('.sc-enhance').forEach(cb=>cb.addEventListener('change',()=>{
+      const k=cb.dataset.sheet;
+      if(k==='ad') [adFront,adBack].forEach(s=>{if(s._rawCanvas) adBakeAdjusted(s);});
+      if(k==='pn'&&pn._rawCanvas) pnBakeAdjusted();
+      if(k==='ct'&&ct._rawCanvas) ctBakeAdjusted();
+      scToast(cb.checked?'Enhancement on':'Enhancement off','ok');
+    }));
     document.querySelectorAll('.sc-direct, .sc-dl').forEach(b=>b.addEventListener('click',()=>scannerDownload(b.dataset.sheet,b.dataset.fmt)));
     function setSelectedColor(hex){document.getElementById('bgColorValue').value=hex;document.getElementById('selectedColorPreview').style.background=hex;document.getElementById('customBgColor').value=hex;document.querySelectorAll('.bg-color-btn').forEach(btn=>{const m=btn.dataset.color===hex;btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);});}
     document.querySelectorAll('.bg-color-btn').forEach(btn=>btn.addEventListener('click',()=>setSelectedColor(btn.dataset.color)));
     document.getElementById('customBgColor').addEventListener('input',e=>{document.querySelectorAll('.bg-color-btn').forEach(b=>{b.classList.remove('ring-blue-400','border-blue-400');b.classList.add('ring-transparent','border-transparent');});document.getElementById('bgColorValue').value=e.target.value;document.getElementById('selectedColorPreview').style.background=e.target.value;});
     setSelectedColor('#FFFFFF');
+    { const _setColor=setSelectedColor; setSelectedColor=function(hex){_setColor(hex);schedulePreview();}; }
+    document.getElementById('customBgColor').addEventListener('input',()=>schedulePreview());
 
     // ─── Feedback ────────────────────────────────────────────────────
     document.getElementById('feedbackBtn').addEventListener('click',()=>document.getElementById('feedbackModal').classList.remove('hidden'));
