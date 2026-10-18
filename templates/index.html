@@ -120,6 +120,9 @@
     .sc-gen-btns { display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center; }
     .sc-bc-round { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.5rem; font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #9a9ab0; cursor: pointer; }
     .sc-bc-round input { accent-color: #f59e0b; }
+    .sc-radius-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0 0 1.4rem; font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #9a9ab0; }
+    .sc-radius-row input[type=range] { flex: 1; accent-color: #f59e0b; }
+    .sc-radius-row .sc-radius-val { min-width: 3.4rem; text-align: right; color: #f59e0b; }
     .sc-direct-lbl { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #6b6b80; margin-left: 0.25rem; }
     .fmt-btn.active, .q-btn.active { background: #2563eb; border-color: #3b82f6; color: #fff; }
 
@@ -261,7 +264,8 @@
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>◐ Contrast</span><span id="adjContrastVal">100</span></div><input type="range" id="adjContrast" min="50" max="150" value="100" class="adj-slider w-full accent-blue-500"/></div>
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>🎨 Saturation</span><span id="adjSaturationVal">100</span></div><input type="range" id="adjSaturation" min="0" max="200" value="100" class="adj-slider w-full accent-blue-500"/></div>
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>🔀 Blend with background colour</span><span id="adjBlendVal">20</span></div><input type="range" id="adjBlend" min="0" max="100" value="20" class="adj-slider w-full accent-blue-500"/></div>
-              <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none pt-1" title="Round the corners of every photo (2 mm)"><input type="checkbox" id="adjRound" class="w-4 h-4 accent-blue-500"/> Rounded corners</label>
+              <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none pt-1" title="Round the corners of every photo"><input type="checkbox" id="adjRound" class="w-4 h-4 accent-blue-500"/> Rounded corners</label>
+              <div id="adjRadiusRow" class="hidden pl-6"><div class="flex justify-between text-xs text-gray-400 mb-1"><span>Corner radius</span><span id="adjRadiusVal">2.0 mm</span></div><input type="range" id="adjRadius" min="0.5" max="8" step="0.1" value="2" class="w-full accent-blue-500"/></div>
               <div class="flex justify-end pt-1"><button id="adjReset" class="text-xs text-gray-400 hover:text-gray-200 border border-gray-600 rounded-lg px-3 py-1.5">Reset adjustments</button></div>
             </div>
           </div>
@@ -369,6 +373,7 @@
                 <button class="sc-bc-reset" id="adFrontBcReset">reset</button>
               <label class="sc-bc-round" title="Off-white, greyish or shadowed paper becomes pure white and dark text becomes solid black (photo and colours kept)"><input type="checkbox" class="sc-whiten" data-sheet="ad"> Pure white &amp; deep black</label>
               <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="ad" checked> Rounded corners</label>
+              <div class="sc-radius-row" data-radius-row="ad"><span>Radius</span><input type="range" class="sc-radius" data-sheet="ad" min="0.5" max="8" step="0.1" value="3.2"/><span class="sc-radius-val">3.2 mm</span></div>
               </div>
               <div class="sc-preview-strip" id="adFrontStrip">
                 <div class="sc-preview-lbl" id="adFrontStripLbl">✓ Front Cropped</div>
@@ -408,6 +413,7 @@
                 <button class="sc-bc-reset" id="adBackBcReset">reset</button>
               <label class="sc-bc-round" title="Off-white, greyish or shadowed paper becomes pure white and dark text becomes solid black (photo and colours kept)"><input type="checkbox" class="sc-whiten" data-sheet="ad"> Pure white &amp; deep black</label>
               <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="ad" checked> Rounded corners</label>
+              <div class="sc-radius-row" data-radius-row="ad"><span>Radius</span><input type="range" class="sc-radius" data-sheet="ad" min="0.5" max="8" step="0.1" value="3.2"/><span class="sc-radius-val">3.2 mm</span></div>
               </div>
               <div class="sc-preview-strip" id="adBackStrip">
                 <div class="sc-preview-lbl" id="adBackStripLbl">✓ Back Cropped</div>
@@ -521,6 +527,7 @@
               <button class="sc-bc-reset" id="pnBcReset">reset</button>
               <label class="sc-bc-round" title="Off-white, greyish or shadowed paper becomes pure white and dark text becomes solid black (photo and colours kept)"><input type="checkbox" class="sc-whiten" data-sheet="pn"> Pure white &amp; deep black</label>
               <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="pn" checked> Rounded corners</label>
+              <div class="sc-radius-row" data-radius-row="pn"><span>Radius</span><input type="range" class="sc-radius" data-sheet="pn" min="0.5" max="8" step="0.1" value="3.2"/><span class="sc-radius-val">3.2 mm</span></div>
             </div>
             <div class="sc-preview-strip" id="pnStrip">
               <div class="sc-preview-lbl" id="pnStripLbl">✓ PAN Card Cropped</div>
@@ -1393,8 +1400,10 @@
       x.bezierCurveTo(L + a - a * k, B, L, B - b + b * k, L, B - b); x.lineTo(L, T + b);
       x.bezierCurveTo(L, T + b - b * k, L + a - a * k, T, L + a, T); x.closePath();
     }
-    function roundCard(src) {
-      const w = src.width, h = src.height, rx = w * 3.18 / 85.6, ry = h * 3.18 / 54;
+    const cardRadiusMM = key => { const el = document.querySelector(`.sc-radius[data-sheet="${key}"]`); const v = el ? parseFloat(el.value) : 3.18; return Number.isFinite(v) ? v : 3.18; };
+    // radius in mm on the printed 85.6 x 54 mm card (3.18 mm = real ID-card corner)
+    function roundCard(src, mm = 3.18) {
+      const w = src.width, h = src.height, rx = w * mm / 85.6, ry = h * mm / 54;
       const out = document.createElement('canvas'); out.width = w; out.height = h;
       const x = out.getContext('2d');
       const path = (i) => { // elliptical corners (card may not be exactly 85.6:54 before placement)
@@ -1499,7 +1508,7 @@
       }
       if (isWhitenOn(key)) whitenCanvas(out);
       if (isEnhanceOn(key)) enhanceCanvas(out, key === 'ct' ? { amount: 0.7, threshold: 3, levels: 'channel' } : { amount: 0.6, threshold: 3, levels: 'channel' });
-      if ((key === 'ad' || key === 'pn') && isRoundOn(key)) out = roundCard(out);
+      if ((key === 'ad' || key === 'pn') && isRoundOn(key)) out = roundCard(out, cardRadiusMM(key));
       return out.toDataURL('image/jpeg', 0.98);
     }
     // Bakes (adjust + enhance + encode) are debounced so sliders stay smooth; flushed before any export.
@@ -2095,7 +2104,7 @@
     function toneOf(photo){if(toneLinked||!photo)return readSliders();return photo.adj||(photo.adj={...sharedTone});}
     function getAdjust(photo){
       return {...toneOf(photo),
-        bg:document.getElementById('bgColorValue').value||'#FFFFFF',enhance:document.getElementById('enhanceToggle').checked,round:document.getElementById('adjRound').checked};
+        bg:document.getElementById('bgColorValue').value||'#FFFFFF',enhance:document.getElementById('enhanceToggle').checked,round:document.getElementById('adjRound').checked,radius:parseFloat(document.getElementById('adjRadius').value)||2};
     }
     // Photo with optional border and rounded corners (2 mm radius). transparent=true leaves corners see-through.
     function framePhoto(ph,bp,round,r,transparent){
@@ -2140,7 +2149,7 @@
       try{
         const cut=await getCutout(photo);
         const adj=getAdjust(photo),base=renderPassportPhoto(cut,cut.naturalWidth||cut.width,cut.naturalHeight||cut.height,adj);
-        const canvas=framePhoto(base,0,adj.round,base.width*2/32.4,fmt==='png');
+        const canvas=framePhoto(base,0,adj.round,base.width*adj.radius/32.4,fmt==='png');
         // tag DPI so the file prints at passport size (photo width = 383 px @ 300 DPI)
         const blob=await setImageDpi(await canvasToBlob(canvas,fmt),fmt,Math.round(canvas.width/(383/300)));
         downloadPdfBlob(blob,`photo-${photos.indexOf(photo)+1}.${fmt}`);
@@ -2226,8 +2235,7 @@
       const pasteW=Math.floor((A4W-2*MX-(PER_ROW-1)*HG)/PER_ROW), photoW=Math.max(1,pasteW-2*border), pasteH=photoH+2*border;
       const k=qDpi()/300;
       const cuts=await Promise.all(photos.map(getCutout));
-      const rmm=2/25.4*300*k; // 2 mm corner radius in px
-      const rendered=cuts.map((c,i)=>{const a=getAdjust(photos[i]);return framePhoto(renderPassportPhoto(c,Math.round(photoW*k),Math.round(photoH*k),a),Math.round(border*k),a.round,rmm,false);});
+      const rendered=cuts.map((c,i)=>{const a=getAdjust(photos[i]);return framePhoto(renderPassportPhoto(c,Math.round(photoW*k),Math.round(photoH*k),a),Math.round(border*k),a.round,a.radius/25.4*300*k,false);});
       const pages=[[]];let x=MX,y=MY;
       photos.forEach((p,i)=>{
         const copies=clampInt(p.copies,1,54,6);
@@ -2340,7 +2348,7 @@
         if(!hasCutout(photo)){livePreviewBtn.innerHTML='Removing background…';}
         const cut=await getCutout(photo);
         const adj=getAdjust(photo),out=renderPassportPhoto(cut,w,hk,adj);
-        const shown=framePhoto(out,0,adj.round,w*2/32.4,true);
+        const shown=framePhoto(out,0,adj.round,w*adj.radius/32.4,true);
         livePreview.width=w;livePreview.height=hk;const lx=livePreview.getContext('2d');lx.clearRect(0,0,w,hk);lx.drawImage(shown,0,0);
         livePreview.style.objectFit='contain';
         livePreview.classList.remove('hidden');livePreviewBtn.classList.add('hidden');
@@ -2389,7 +2397,10 @@
     });
     ['enhanceToggle','height','border'].forEach(id=>document.getElementById(id).addEventListener('input',schedulePreview));
     document.getElementById('enhanceToggle').addEventListener('change',schedulePreview);
-    document.getElementById('adjRound').addEventListener('change',schedulePreview);
+    const syncPhotoRadius=()=>document.getElementById('adjRadiusRow').classList.toggle('hidden',!document.getElementById('adjRound').checked);
+    document.getElementById('adjRound').addEventListener('change',()=>{syncPhotoRadius();schedulePreview();});
+    document.getElementById('adjRadius').addEventListener('input',e=>{document.getElementById('adjRadiusVal').textContent=parseFloat(e.target.value).toFixed(1)+' mm';schedulePreview();});
+    syncPhotoRadius();
 
     document.querySelectorAll('.q-btn').forEach(btn=>btn.addEventListener('click',()=>{
       if(printQuality===btn.dataset.q) return;
@@ -2420,9 +2431,21 @@
         scToast(`${fmt.toUpperCase()} downloaded ✓`,'ok');
       }catch(e){scToast('Export failed. Try again.','warn');}
     }
+    function syncRadiusRows(k){
+      const on=isRoundOn(k);
+      document.querySelectorAll(`[data-radius-row="${k}"]`).forEach(r=>r.style.display=on?'':'none');
+    }
+    ['ad','pn'].forEach(syncRadiusRows);
+    document.querySelectorAll('.sc-radius').forEach(sl=>sl.addEventListener('input',()=>{
+      const k=sl.dataset.sheet,v=parseFloat(sl.value).toFixed(1);
+      document.querySelectorAll(`.sc-radius[data-sheet="${k}"]`).forEach(o=>{o.value=sl.value;o.nextElementSibling.textContent=v+' mm';});
+      if(k==='ad') [adFront,adBack].forEach(s=>{if(s._rawCanvas) adBakeAdjusted(s);});
+      if(k==='pn'&&pn._rawCanvas) pnBakeAdjusted();
+    }));
     document.querySelectorAll('.sc-enhance, .sc-round, .sc-whiten').forEach(cb=>cb.addEventListener('change',()=>{
       const k=cb.dataset.sheet;
       for(const cls of ['sc-round','sc-whiten']) if(cb.classList.contains(cls)) document.querySelectorAll(`.${cls}[data-sheet="${k}"]`).forEach(o=>o.checked=cb.checked);
+      if(cb.classList.contains('sc-round')) syncRadiusRows(k);
       if(k==='ad') [adFront,adBack].forEach(s=>{if(s._rawCanvas) adBakeAdjusted(s);});
       if(k==='pn'&&pn._rawCanvas) pnBakeAdjusted();
       if(k==='ct'&&ct._rawCanvas) ctBakeAdjusted();
