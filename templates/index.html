@@ -367,6 +367,7 @@
                 <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="adFrontBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="adFrontBrightVal">100</span></div>
                 <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="adFrontContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="adFrontContrVal">100</span></div>
                 <button class="sc-bc-reset" id="adFrontBcReset">reset</button>
+              <label class="sc-bc-round" title="Off-white, greyish or shadowed paper becomes pure white and dark text becomes solid black (photo and colours kept)"><input type="checkbox" class="sc-whiten" data-sheet="ad"> Pure white &amp; deep black</label>
               <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="ad" checked> Rounded corners</label>
               </div>
               <div class="sc-preview-strip" id="adFrontStrip">
@@ -405,6 +406,7 @@
                 <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="adBackBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="adBackBrightVal">100</span></div>
                 <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="adBackContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="adBackContrVal">100</span></div>
                 <button class="sc-bc-reset" id="adBackBcReset">reset</button>
+              <label class="sc-bc-round" title="Off-white, greyish or shadowed paper becomes pure white and dark text becomes solid black (photo and colours kept)"><input type="checkbox" class="sc-whiten" data-sheet="ad"> Pure white &amp; deep black</label>
               <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="ad" checked> Rounded corners</label>
               </div>
               <div class="sc-preview-strip" id="adBackStrip">
@@ -517,6 +519,7 @@
               <div class="sc-bc-row"><span class="sc-bc-lbl">☀ Bright</span><input type="range" class="sc-bc-slider" id="pnBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="pnBrightVal">100</span></div>
               <div class="sc-bc-row"><span class="sc-bc-lbl">◑ Contrast</span><input type="range" class="sc-bc-slider" id="pnContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="pnContrVal">100</span></div>
               <button class="sc-bc-reset" id="pnBcReset">reset</button>
+              <label class="sc-bc-round" title="Off-white, greyish or shadowed paper becomes pure white and dark text becomes solid black (photo and colours kept)"><input type="checkbox" class="sc-whiten" data-sheet="pn"> Pure white &amp; deep black</label>
               <label class="sc-bc-round" title="Card-style rounded corners with a faint cutting outline"><input type="checkbox" class="sc-round" data-sheet="pn" checked> Rounded corners</label>
             </div>
             <div class="sc-preview-strip" id="pnStrip">
@@ -622,6 +625,7 @@
               <div class="sc-bc-row"><span class="sc-bc-lbl">Bright</span><input type="range" class="sc-bc-slider" id="ctBright" min="0" max="200" value="100"/><span class="sc-bc-val" id="ctBrightVal">100</span></div>
               <div class="sc-bc-row"><span class="sc-bc-lbl">Contrast</span><input type="range" class="sc-bc-slider" id="ctContr" min="0" max="200" value="100"/><span class="sc-bc-val" id="ctContrVal">100</span></div>
               <button class="sc-bc-reset" id="ctBcReset">reset</button>
+              <label class="sc-bc-round" title="Off-white, greyish or shadowed paper becomes pure white and dark text becomes solid black (photo and colours kept)"><input type="checkbox" class="sc-whiten" data-sheet="ct"> Pure white &amp; deep black</label>
             </div>
             <div class="sc-preview-strip" id="ctStrip">
               <div class="sc-preview-lbl" id="ctStripLbl">Certificate Ready</div>
@@ -1407,6 +1411,81 @@
       x.lineWidth = lw; x.strokeStyle = '#c7c7c7'; path(lw / 2); x.stroke();
       return out;
     }
+    // "Make white parts pure white": estimate the paper/card background (bright, low-saturation pixels),
+    // fill holes under text/photos by normalized convolution, divide it out (removes shadows + tint), then clip near-white to 255.
+    const isWhitenOn = key => { const el = document.querySelector(`.sc-whiten[data-sheet="${key}"]`); return !!el && el.checked; };
+    function whitenCanvas(canvas) {
+      const w = canvas.width, h = canvas.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const S = 128, sw = Math.max(16, Math.round(w >= h ? S : S * w / h)), sh = Math.max(16, Math.round(h > w ? S : S * h / w)), n = sw * sh;
+      const sm = document.createElement('canvas'); sm.width = sw; sm.height = sh;
+      const smx = sm.getContext('2d', { willReadFrequently: true }); smx.imageSmoothingQuality = 'high'; smx.drawImage(canvas, 0, 0, sw, sh);
+      const sd = smx.getImageData(0, 0, sw, sh), a = sd.data;
+      // paper-like mask: bright and nearly grey
+      const lum = new Float32Array(n);
+      for (let p = 0; p < n; p++) lum[p] = 0.299 * a[p * 4] + 0.587 * a[p * 4 + 1] + 0.114 * a[p * 4 + 2];
+      const sorted = Float32Array.from(lum).sort(), thr = Math.max(90, sorted[Math.floor(n * 0.45)]);
+      const M = new Float32Array(n), V = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+      let paper = 0;
+      for (let p = 0; p < n; p++) {
+        const r = a[p * 4], g = a[p * 4 + 1], b = a[p * 4 + 2], sat = Math.max(r, g, b) - Math.min(r, g, b);
+        if (lum[p] >= thr && sat < 45) { M[p] = 1; V[0][p] = r; V[1][p] = g; V[2][p] = b; paper++; }
+      }
+      if (paper < n * 0.05) return canvas; // no clear white area: leave untouched
+      const blur = (arr, R) => { // 3 passes of separable box blur ≈ gaussian
+        let src = arr, tmp = new Float32Array(n), dst = new Float32Array(n);
+        for (let pass = 0; pass < 3; pass++) {
+          for (let y = 0; y < sh; y++) { let acc = 0, row = y * sw;
+            for (let x = -R; x <= R; x++) acc += src[row + Math.min(sw - 1, Math.max(0, x))];
+            for (let x = 0; x < sw; x++) { tmp[row + x] = acc / (2 * R + 1);
+              acc += src[row + Math.min(sw - 1, x + R + 1)] - src[row + Math.max(0, x - R)]; } }
+          for (let x = 0; x < sw; x++) { let acc = 0;
+            for (let y = -R; y <= R; y++) acc += tmp[Math.min(sh - 1, Math.max(0, y)) * sw + x];
+            for (let y = 0; y < sh; y++) { dst[y * sw + x] = acc / (2 * R + 1);
+              acc += tmp[Math.min(sh - 1, y + R + 1) * sw + x] - tmp[Math.max(0, y - R) * sw + x]; } }
+          src = dst; dst = new Float32Array(n);
+        }
+        return src;
+      };
+      const R = Math.max(3, Math.round(Math.max(sw, sh) * 0.08));
+      let Mb = blur(M, R), Vb = V.map(v => blur(v, R));
+      // second pass: "paper" judged relative to the local lighting, so shadowed paper is recognised too
+      for (let p = 0; p < n; p++) {
+        const m = Mb[p]; if (m < 1e-3) continue;
+        const bl = (0.299 * Vb[0][p] + 0.587 * Vb[1][p] + 0.114 * Vb[2][p]) / m;
+        const r = a[p * 4], g = a[p * 4 + 1], b = a[p * 4 + 2], sat = Math.max(r, g, b) - Math.min(r, g, b);
+        if (!M[p] && lum[p] >= 0.8 * bl && lum[p] >= 60 && sat < 45) { M[p] = 1; V[0][p] = r; V[1][p] = g; V[2][p] = b; paper++; }
+      }
+      Mb = blur(M, R); Vb = V.map(v => blur(v, R));
+      let gr = 0, gg = 0, gb = 0; // global paper colour as fallback for big non-paper areas
+      for (let p = 0; p < n; p++) if (M[p]) { gr += a[p * 4]; gg += a[p * 4 + 1]; gb += a[p * 4 + 2]; }
+      gr /= paper; gg /= paper; gb /= paper;
+      for (let p = 0; p < n; p++) {
+        const m = Mb[p], t = Math.min(1, m / 0.15); // blend to global where little paper nearby
+        a[p * 4]     = (m > 1e-4 ? Vb[0][p] / m : gr) * t + gr * (1 - t);
+        a[p * 4 + 1] = (m > 1e-4 ? Vb[1][p] / m : gg) * t + gg * (1 - t);
+        a[p * 4 + 2] = (m > 1e-4 ? Vb[2][p] / m : gb) * t + gb * (1 - t);
+        a[p * 4 + 3] = 255;
+      }
+      smx.putImageData(sd, 0, 0);
+      const bg = document.createElement('canvas'); bg.width = w; bg.height = h;
+      const bgx = bg.getContext('2d', { willReadFrequently: true }); bgx.imageSmoothingQuality = 'high'; bgx.drawImage(sm, 0, 0, w, h);
+      const B = bgx.getImageData(0, 0, w, h).data, id = ctx.getImageData(0, 0, w, h), d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        let r = d[i] * 255 / Math.max(60, B[i]), g = d[i + 1] * 255 / Math.max(60, B[i + 1]), b = d[i + 2] * 255 / Math.max(60, B[i + 2]);
+        const l = 0.299 * r + 0.587 * g + 0.114 * b, sat = Math.max(r, g, b) - Math.min(r, g, b);
+        if (l > 215 && sat < 60) { // smooth push of near-white to pure white
+          const k = Math.min(1, (l - 215) / 30) * (1 - sat / 60);
+          r += (255 - r) * k; g += (255 - g) * k; b += (255 - b) * k;
+        } else if (l < 185 && sat < 70) { // deepen dark/grey text & lines toward solid black; coloured ink (sat) left alone
+          const target = 185 * Math.pow(l / 185, 3), w = 1 - sat / 70, k = (l > 0 ? target / l : 0) * w + (1 - w);
+          r *= k; g *= k; b *= k;
+        }
+        d[i] = r; d[i + 1] = g; d[i + 2] = b;
+      }
+      ctx.putImageData(id, 0, 0);
+      return canvas;
+    }
     function finishScan(canvas, key) {
       let out = canvas;
       const max = SCAN_MAX_PX[printQuality][key], long = Math.max(canvas.width, canvas.height);
@@ -1418,6 +1497,7 @@
         const c = out.getContext('2d'); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
         c.drawImage(canvas, 0, 0, out.width, out.height);
       }
+      if (isWhitenOn(key)) whitenCanvas(out);
       if (isEnhanceOn(key)) enhanceCanvas(out, key === 'ct' ? { amount: 0.7, threshold: 3, levels: 'channel' } : { amount: 0.6, threshold: 3, levels: 'channel' });
       if ((key === 'ad' || key === 'pn') && isRoundOn(key)) out = roundCard(out);
       return out.toDataURL('image/jpeg', 0.98);
@@ -2340,13 +2420,13 @@
         scToast(`${fmt.toUpperCase()} downloaded ✓`,'ok');
       }catch(e){scToast('Export failed. Try again.','warn');}
     }
-    document.querySelectorAll('.sc-enhance, .sc-round').forEach(cb=>cb.addEventListener('change',()=>{
+    document.querySelectorAll('.sc-enhance, .sc-round, .sc-whiten').forEach(cb=>cb.addEventListener('change',()=>{
       const k=cb.dataset.sheet;
-      if(cb.classList.contains('sc-round')) document.querySelectorAll(`.sc-round[data-sheet="${k}"]`).forEach(o=>o.checked=cb.checked);
+      for(const cls of ['sc-round','sc-whiten']) if(cb.classList.contains(cls)) document.querySelectorAll(`.${cls}[data-sheet="${k}"]`).forEach(o=>o.checked=cb.checked);
       if(k==='ad') [adFront,adBack].forEach(s=>{if(s._rawCanvas) adBakeAdjusted(s);});
       if(k==='pn'&&pn._rawCanvas) pnBakeAdjusted();
       if(k==='ct'&&ct._rawCanvas) ctBakeAdjusted();
-      scToast(cb.classList.contains('sc-round')?(cb.checked?'Rounded corners on':'Square corners'):(cb.checked?'Enhancement on':'Enhancement off'),'ok');
+      scToast(cb.classList.contains('sc-whiten')?(cb.checked?'Pure white & deep black on':'Original whites & blacks'):cb.classList.contains('sc-round')?(cb.checked?'Rounded corners on':'Square corners'):(cb.checked?'Enhancement on':'Enhancement off'),'ok');
     }));
     document.querySelectorAll('.sc-direct, .sc-dl').forEach(b=>b.addEventListener('click',()=>scannerDownload(b.dataset.sheet,b.dataset.fmt)));
     function setSelectedColor(hex){document.getElementById('bgColorValue').value=hex;document.getElementById('selectedColorPreview').style.background=hex;document.getElementById('customBgColor').value=hex;document.querySelectorAll('.bg-color-btn').forEach(btn=>{const m=btn.dataset.color===hex;btn.classList.toggle('ring-blue-400',m);btn.classList.toggle('ring-transparent',!m);btn.classList.toggle('border-blue-400',m);btn.classList.toggle('border-transparent',!m);});}
