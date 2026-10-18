@@ -87,7 +87,9 @@
 
     .sc-pts-row { padding: 0.5rem 1rem; border-top: 1px solid var(--border); display: flex; gap: 0.35rem; flex-wrap: wrap; }
     .sc-pt-chip { font-family: var(--font-mono); font-size: 0.58rem; padding: 3px 7px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); transition: all 0.2s; }
-    .sc-pt-chip.set { background: rgba(128,128,255,0.08); border-color: rgba(128,128,255,0.3); color: var(--accent); }
+    .sc-pt-chip.set { background: rgba(128,128,255,0.08); border-color: rgba(128,128,255,0.3); color: var(--accent); cursor: pointer; }
+    .sc-pt-chip.set:hover { border-color: var(--accent); }
+    .sc-pt-chip.kb-active { outline: 2px solid #ffffff; outline-offset: 1px; }
 
     .sc-ctrl { padding: 0.65rem 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--border); }
     .sc-btn { padding: 0.5rem 0.85rem; border-radius: 7px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-family: var(--font-display); font-size: 0.76rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
@@ -359,7 +361,7 @@
                 </label>
                 <canvas id="adFrontCanvas" class="sc-canvas" style="display:none;"></canvas>
               </div>
-              <div class="sc-instructions" id="adFrontInstr"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. <span class="sc-kb-hint">Keyboard: hover a corner, <strong>Shift + arrow</strong> = 1 px (Ctrl + Shift = 10 px), <strong>Enter</strong> = place it. Keys <strong>1–4</strong> pick a placed corner to nudge.</span></div>
+              <div class="sc-instructions" id="adFrontInstr"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. <span class="sc-kb-hint">Keyboard: hover a corner, <strong>Shift + arrow</strong> = 1 px (Ctrl + Shift = 10 px), <strong>Enter</strong> = place it. Keys <strong>1–4</strong> jump to TL/TR/BR/BL to edit, even after cropping.</span></div>
               <div class="sc-pts-row" id="adFrontPts">
                 <span class="sc-pt-chip" id="adfpt0">TL —</span><span class="sc-pt-chip" id="adfpt1">TR —</span><span class="sc-pt-chip" id="adfpt2">BR —</span><span class="sc-pt-chip" id="adfpt3">BL —</span>
               </div>
@@ -399,7 +401,7 @@
                 </label>
                 <canvas id="adBackCanvas" class="sc-canvas" style="display:none;"></canvas>
               </div>
-              <div class="sc-instructions" id="adBackInstr"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. <span class="sc-kb-hint">Keyboard: hover a corner, <strong>Shift + arrow</strong> = 1 px (Ctrl + Shift = 10 px), <strong>Enter</strong> = place it. Keys <strong>1–4</strong> pick a placed corner to nudge.</span></div>
+              <div class="sc-instructions" id="adBackInstr"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. <span class="sc-kb-hint">Keyboard: hover a corner, <strong>Shift + arrow</strong> = 1 px (Ctrl + Shift = 10 px), <strong>Enter</strong> = place it. Keys <strong>5–8</strong> (back side) jump to TL/TR/BR/BL to edit, even after cropping.</span></div>
               <div class="sc-pts-row" id="adBackPts">
                 <span class="sc-pt-chip" id="adbpt0">TL —</span><span class="sc-pt-chip" id="adbpt1">TR —</span><span class="sc-pt-chip" id="adbpt2">BR —</span><span class="sc-pt-chip" id="adbpt3">BL —</span>
               </div>
@@ -513,7 +515,7 @@
               </label>
               <canvas id="pnCanvas" class="sc-canvas" style="display:none;"></canvas>
             </div>
-            <div class="sc-instructions" id="pnInstructions"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. Or press <strong>Use Full Image</strong>. <span class="sc-kb-hint">Keyboard: hover a corner, <strong>Shift + arrow</strong> = 1 px (Ctrl + Shift = 10 px), <strong>Enter</strong> = place it. Keys <strong>1–4</strong> pick a placed corner to nudge.</span></div>
+            <div class="sc-instructions" id="pnInstructions"><strong>Click 4 corners</strong> — TL, TR, BR, BL. Drag to adjust. Or press <strong>Use Full Image</strong>. <span class="sc-kb-hint">Keyboard: hover a corner, <strong>Shift + arrow</strong> = 1 px (Ctrl + Shift = 10 px), <strong>Enter</strong> = place it. Keys <strong>1–4</strong> jump to TL/TR/BR/BL to edit, even after cropping.</span></div>
             <div class="sc-pts-row">
               <span class="sc-pt-chip" id="pnpt0">TL —</span><span class="sc-pt-chip" id="pnpt1">TR —</span><span class="sc-pt-chip" id="pnpt2">BR —</span><span class="sc-pt-chip" id="pnpt3">BL —</span>
             </div>
@@ -620,7 +622,7 @@
               </label>
               <canvas id="ctCanvas" class="sc-canvas" style="display:none;"></canvas>
             </div>
-            <div class="sc-instructions" id="ctInstructions"><strong>Click 4 corners</strong> - TL, TR, BR, BL. Drag to adjust. Or press <strong>Use Full Image</strong>. <span class="sc-kb-hint">Keyboard: hover a corner, <strong>Shift + arrow</strong> = 1 px (Ctrl + Shift = 10 px), <strong>Enter</strong> = place it. Keys <strong>1–4</strong> pick a placed corner to nudge.</span></div>
+            <div class="sc-instructions" id="ctInstructions"><strong>Click 4 corners</strong> - TL, TR, BR, BL. Drag to adjust. Or press <strong>Use Full Image</strong>. <span class="sc-kb-hint">Keyboard: hover a corner, <strong>Shift + arrow</strong> = 1 px (Ctrl + Shift = 10 px), <strong>Enter</strong> = place it. Keys <strong>1–4</strong> jump to TL/TR/BR/BL to edit, even after cropping.</span></div>
             <div class="sc-pts-row">
               <span class="sc-pt-chip" id="ctpt0">TL -</span><span class="sc-pt-chip" id="ctpt1">TR -</span><span class="sc-pt-chip" id="ctpt2">BR -</span><span class="sc-pt-chip" id="ctpt3">BL -</span>
             </div>
@@ -2501,10 +2503,14 @@
       const loupe = document.getElementById('cornerLoupe'), lx = loupe.getContext('2d');
       const L = 300, Z = 5; // backing px (shown at 150 css px, sharp on retina) and zoom vs. the on-screen canvas
       const targets = [
-        { canvas: () => document.getElementById('adFrontCanvas'), st: () => adFront, redraw: () => adRedraw(adFront), chips: () => adUpdateChips(adFront) },
-        { canvas: () => document.getElementById('adBackCanvas'),  st: () => adBack,  redraw: () => adRedraw(adBack),  chips: () => adUpdateChips(adBack) },
-        { canvas: () => document.getElementById('pnCanvas'),      st: () => pn,      redraw: () => pnRedraw(),        chips: () => pnUpdateChips() },
-        { canvas: () => document.getElementById('ctCanvas'),      st: () => ct,      redraw: () => ctRedraw(),        chips: () => ctUpdateChips() },
+        { canvas: () => document.getElementById('adFrontCanvas'), st: () => adFront, redraw: () => adRedraw(adFront), chips: () => adUpdateChips(adFront),
+          mode: 'aadhaarMode', keyBase: 1, chip: 'adfpt', recrop: () => adCropSide(adFront) },
+        { canvas: () => document.getElementById('adBackCanvas'),  st: () => adBack,  redraw: () => adRedraw(adBack),  chips: () => adUpdateChips(adBack),
+          mode: 'aadhaarMode', keyBase: 5, chip: 'adbpt', recrop: () => adCropSide(adBack) },
+        { canvas: () => document.getElementById('pnCanvas'),      st: () => pn,      redraw: () => pnRedraw(),        chips: () => pnUpdateChips(),
+          mode: 'panMode', keyBase: 1, chip: 'pnpt', recrop: () => document.getElementById('pnCrop').click() },
+        { canvas: () => document.getElementById('ctCanvas'),      st: () => ct,      redraw: () => ctRedraw(),        chips: () => ctUpdateChips(),
+          mode: 'certificateMode', keyBase: 1, chip: 'ctpt', recrop: () => document.getElementById('ctCrop').click() },
       ];
       function hide() { loupe.style.display = 'none'; }
       // Corners go TL→TR→BR→BL; the edges through the active point join it to its neighbours.
@@ -2671,18 +2677,46 @@
         x.setLineDash([3, 3]); x.lineWidth = 2; x.strokeStyle = '#ffffff';
         x.beginPath(); x.arc(p.x, p.y, 18, 0, Math.PI * 2); x.stroke(); x.restore();
       }
+      // Re-crop automatically when an already-cropped side's corners are edited (debounced)
+      const recropTimers = new Map();
+      function scheduleRecrop(t) {
+        const s = t.st(); if (!s._rawCanvas || s.points.length < 4) return;
+        clearTimeout(recropTimers.get(t));
+        recropTimers.set(t, setTimeout(() => { try { t.recrop(); } catch (_) {} }, 700));
+      }
+      function markChip(t) {
+        document.querySelectorAll('.sc-pt-chip.kb-active').forEach(el => el.classList.remove('kb-active'));
+        const el = document.getElementById(t.chip + t.st()._sel); if (el) el.classList.add('kb-active');
+      }
+      // Number keys / chip click: select that corner, bring the image into view and open the magnifier on it
+      function jumpToCorner(t, idx) {
+        const s = t.st(), c = t.canvas();
+        if (!s.originalImage || !c || c.style.display === 'none') { scToast('Upload the image first', 'warn'); return; }
+        if (!s.points[idx]) { scToast(PT_LABELS[idx] + ' is not placed yet', 'warn'); return; }
+        kbTarget = t; s._sel = idx; s._kbMode = 'point'; s._modeAnchor = s._lastClient || null;
+        const r = c.getBoundingClientRect();
+        if (r.top < 0 || r.bottom > window.innerHeight) { ignoreScrollUntil = performance.now() + 500; c.scrollIntoView({ block: 'center' }); }
+        t.redraw(); showAtCorner(t); markChip(t);
+      }
+      let ignoreScrollUntil = 0;
       function showAtCorner(t) {
         const s = t.st(), c = t.canvas(), p = s.points[s._sel]; if (!p) return;
         const r = c.getBoundingClientRect(), sx = cw(c) / r.width, sy = ch(c) / r.height;
         const prevDrag = s.draggingIdx; s.draggingIdx = s._sel; // treat as an active drag so guides fit this corner
         draw(t, { clientX: r.left + p.x / sx, clientY: r.top + p.y / sy, buttons: 1, pointerType: 'mouse', _kb: true });
-        s.draggingIdx = prevDrag; selRing(t);
-        clearTimeout(kbHideTimer); kbHideTimer = setTimeout(() => { hide(); t.redraw(); }, 2500);
+        s.draggingIdx = prevDrag; selRing(t); markChip(t);
+        clearTimeout(kbHideTimer); kbHideTimer = setTimeout(() => { hide(); t.redraw(); }, 8000);
       }
       document.addEventListener('keydown', e => {
-        const t = kbTarget; if (!t) return;
         const ae = document.activeElement, tag = ae && ae.tagName;
         if (ae && (tag === 'TEXTAREA' || tag === 'SELECT' || ae.isContentEditable || (tag === 'INPUT' && ae.type !== 'range' && ae.type !== 'checkbox'))) return;
+        if (/^[1-8]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          const n = +e.key;
+          const tt = targets.find(x => { const m = document.getElementById(x.mode); return m && !m.classList.contains('hidden') && n >= x.keyBase && n < x.keyBase + 4; });
+          if (tt) { e.preventDefault(); if (ae && tag === 'INPUT') ae.blur(); jumpToCorner(tt, n - tt.keyBase); }
+          return;
+        }
+        const t = kbTarget; if (!t) return;
         const c = t.canvas(), s = t.st();
         if (!c || !s.originalImage || c.style.display === 'none' || !c.offsetParent) return;
         const placing = s._kbMode === 'cursor' && s.points.length < 4 && s._cursor;
@@ -2693,11 +2727,6 @@
           if (s.points.length === 4) { scToast('4 corners set — press Crop', 'ok'); s._kbMode = 'point'; hide(); }
           else showAtCursor(t);
           return;
-        }
-        if (['1', '2', '3', '4'].includes(e.key)) {
-          const k = +e.key - 1; if (!s.points[k]) return;
-          s._sel = k; s._kbMode = 'point'; s._modeAnchor = s._lastClient || null;
-          e.preventDefault(); t.redraw(); showAtCorner(t); return;
         }
         const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
         if (!dir) { if (e.key === 'Escape') { hide(); t.redraw(); } return; }
@@ -2716,9 +2745,13 @@
         const p = s.points[s._sel];
         p.x = Math.max(0, Math.min(cw(c), p.x + dir[0] * step));
         p.y = Math.max(0, Math.min(ch(c), p.y + dir[1] * step));
-        t.redraw(); t.chips(); showAtCorner(t);
+        t.redraw(); t.chips(); showAtCorner(t); scheduleRecrop(t);
       });
       targets.forEach(t => {
+        for (let i = 0; i < 4; i++) {
+          const el = document.getElementById(t.chip + i);
+          if (el) { el.title = `Edit this corner (key ${t.keyBase + i})`; el.addEventListener('click', () => jumpToCorner(t, i)); }
+        }
         const c = t.canvas(); if (!c) return;
         let raf = 0, last = null, nBefore = 0;
         const sched = e => { last = e; if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(t, last); }); };
@@ -2736,9 +2769,9 @@
         c.addEventListener('pointerleave', () => { hide(); const s = t.st(); if (s.originalImage && c.style.display !== 'none') t.redraw(); });
         c.addEventListener('pointercancel', hide);
       });
-      window.addEventListener('scroll', hide, { passive: true });
+      window.addEventListener('scroll', () => { if (performance.now() > ignoreScrollUntil) hide(); }, { passive: true }); // our own jump-scroll keeps the magnifier open
       const endAllDrags = () => targets.forEach(t => {
-        const s = t.st(); if (s && s.draggingIdx !== -1) { s.draggingIdx = -1; s._drag = null; t.chips(); }
+        const s = t.st(); if (s && s.draggingIdx !== -1) { s.draggingIdx = -1; s._drag = null; t.chips(); scheduleRecrop(t); }
       });
       ['mouseup', 'touchend', 'touchcancel', 'pointerup', 'pointercancel', 'blur'].forEach(ev => window.addEventListener(ev, endAllDrags));
     })();
