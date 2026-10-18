@@ -2486,10 +2486,27 @@
       function activeEdges(s) {
         const n = s.points.length, i = s.draggingIdx !== -1 ? s.draggingIdx : n;
         if (i > 3) return { i: -1, nb: [] };
-        const nb = [];
-        if (s.draggingIdx !== -1) { [s.points[(i + 3) % 4], s.points[(i + 1) % 4]].forEach(p => p && nb.push(p)); }
-        else { if (n > 0) nb.push(s.points[n - 1]); if (n === 3) nb.push(s.points[0]); }
-        return { i, nb };
+        let prev = null, next = null;
+        if (s.draggingIdx !== -1) { prev = s.points[(i + 3) % 4] || null; next = s.points[(i + 1) % 4] || null; }
+        else { if (n > 0) prev = s.points[n - 1]; if (n === 3) next = s.points[0]; }
+        return { i, nb: [prev, next].filter(Boolean), prev, next };
+      }
+      // 90° reference directions at the active point (unit vectors, canvas space).
+      // Corners run TL→TR→BR→BL (clockwise on screen); if the user's points go the other way, flip.
+      function rightAngleGuides(s, pos) {
+        const { i, prev, next } = activeEdges(s), out = { guides: [], angle: null };
+        if (i === -1) return out;
+        const poly = s.points.slice(); if (s.draggingIdx !== -1) poly[i] = pos; else poly.push(pos);
+        let area = 0; for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length]; area += a.x * b.y - b.x * a.y; }
+        const sign = poly.length >= 3 && area < 0 ? -1 : 1;
+        const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return { x: x / l, y: y / l }; };
+        if (prev) { const v = unit(prev.x - pos.x, prev.y - pos.y); out.guides.push({ x: sign * v.y, y: -sign * v.x }); }
+        if (next) { const u = unit(next.x - pos.x, next.y - pos.y); out.guides.push({ x: -sign * u.y, y: sign * u.x }); }
+        if (prev && next) {
+          const a = unit(prev.x - pos.x, prev.y - pos.y), b = unit(next.x - pos.x, next.y - pos.y);
+          out.angle = Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y))) * 180 / Math.PI;
+        }
+        return out;
       }
       // Live edge lines on the main image while hovering/dragging
       function drawMainEdges(t, s, pos) {
@@ -2498,6 +2515,9 @@
         const x = t.canvas().getContext('2d');
         x.save(); x.strokeStyle = AD_COLORS[i]; x.lineWidth = 1.5;
         nb.forEach(p => { x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(pos.x, pos.y); x.stroke(); });
+        const len = 0.45 * Math.max(...nb.map(p => Math.hypot(p.x - pos.x, p.y - pos.y)));
+        x.setLineDash([6, 5]); x.lineWidth = 1.5; x.strokeStyle = 'rgba(255,255,255,0.85)';
+        rightAngleGuides(s, pos).guides.forEach(g => { x.beginPath(); x.moveTo(pos.x, pos.y); x.lineTo(pos.x + g.x * len, pos.y + g.y * len); x.stroke(); });
         x.restore();
       }
       function draw(t, e) {
@@ -2537,6 +2557,22 @@
           lx.beginPath(); lx.moveTo(C - ux * far * 0.15, C - uy * far * 0.15); lx.lineTo(C + ux * far, C + uy * far); lx.stroke();
           lx.strokeStyle = AD_COLORS[nextIdx]; lx.lineWidth = 2.5; lx.stroke();
         });
+        // dashed 90° reference from this point: where the other edge should run for a square corner
+        const ra = rightAngleGuides(s, pos);
+        lx.setLineDash([12, 9]);
+        ra.guides.forEach(g => {
+          lx.strokeStyle = 'rgba(0,0,0,0.65)'; lx.lineWidth = 5;
+          lx.beginPath(); lx.moveTo(C, C); lx.lineTo(C + g.x * L, C + g.y * L); lx.stroke();
+          lx.strokeStyle = 'rgba(255,255,255,0.95)'; lx.lineWidth = 2; lx.stroke();
+        });
+        lx.setLineDash([]);
+        if (ra.angle !== null) {
+          const off = Math.abs(ra.angle - 90), col = off <= 1 ? '#00ff88' : off <= 3 ? '#ffd600' : '#ff3d6b';
+          const txt = ra.angle.toFixed(1) + '°';
+          lx.font = 'bold 24px Space Mono, monospace'; lx.textAlign = 'center';
+          lx.fillStyle = 'rgba(0,0,0,0.65)'; lx.fillRect(C - 52, 26, 104, 34);
+          lx.fillStyle = col; lx.fillText(txt, C, 52);
+        }
         if (!nb.length) { // first corner: no edge yet, show a small target ring
           lx.strokeStyle = 'rgba(0,0,0,0.7)'; lx.lineWidth = 5; lx.beginPath(); lx.arc(C, C, 10, 0, Math.PI * 2); lx.stroke();
           lx.strokeStyle = AD_COLORS[nextIdx]; lx.lineWidth = 2; lx.stroke();
