@@ -2502,6 +2502,19 @@
         else { if (n > 0) prev = s.points[n - 1]; if (n === 3) next = s.points[0]; }
         return { i, nb: [prev, next].filter(Boolean), prev, next };
       }
+      // Right-angle "L" for a corner with no edges yet: TL arms → right+down, TR → left+down, BR → left+up, BL → right+up
+      const CORNER_ARMS = [[[1, 0], [0, 1]], [[-1, 0], [0, 1]], [[-1, 0], [0, -1]], [[1, 0], [0, -1]]];
+      function drawRightAngle(x, cx, cy, idx, len, box, lw) {
+        const [a, b] = CORNER_ARMS[idx];
+        const path = () => {
+          x.beginPath(); x.moveTo(cx + a[0] * len, cy + a[1] * len); x.lineTo(cx, cy); x.lineTo(cx + b[0] * len, cy + b[1] * len);
+          x.moveTo(cx + a[0] * box, cy + a[1] * box); x.lineTo(cx + (a[0] + b[0]) * box, cy + (a[1] + b[1]) * box); x.lineTo(cx + b[0] * box, cy + b[1] * box);
+        };
+        x.save(); x.lineCap = 'round'; x.lineJoin = 'round';
+        path(); x.strokeStyle = 'rgba(0,0,0,0.7)'; x.lineWidth = lw + 3; x.stroke();
+        path(); x.strokeStyle = '#ffffff'; x.lineWidth = lw; x.stroke();
+        x.restore();
+      }
       // Last corner: the spot that makes a perfect rectangle with the other three (prev + next − opposite).
       function rectTarget(s) {
         const { i, prev, next } = activeEdges(s); if (i === -1 || !prev || !next) return null;
@@ -2528,6 +2541,7 @@
       // Live edge lines on the main image while hovering/dragging
       function drawMainEdges(t, s, pos) {
         const { i, nb } = activeEdges(s); t.redraw();
+        if (i !== -1 && !nb.length) { drawRightAngle(t.canvas().getContext('2d'), pos.x, pos.y, i, 26, 6, 1.5); return; }
         if (i === -1 || !nb.length) return;
         const x = t.canvas().getContext('2d');
         const tg = rectTarget(s);
@@ -2615,9 +2629,11 @@
           lx.fillStyle = 'rgba(0,0,0,0.65)'; lx.fillRect(C - 52, 26, 104, 34);
           lx.fillStyle = col; lx.fillText(txt, C, 52);
         }
-        if (!nb.length) { // first corner: no edge yet, show a small target ring
-          lx.strokeStyle = 'rgba(0,0,0,0.7)'; lx.lineWidth = 5; lx.beginPath(); lx.arc(C, C, 10, 0, Math.PI * 2); lx.stroke();
-          lx.strokeStyle = AD_COLORS[nextIdx]; lx.lineWidth = 2; lx.stroke();
+        if (!nb.length && act !== -1) { // first corner: right-angle marker to line up with the card's corner
+          drawRightAngle(lx, C, C, nextIdx, L * 0.42, 18, 2.5);
+          lx.font = 'bold 18px Space Mono, monospace'; lx.textAlign = 'left';
+          const [a, b] = CORNER_ARMS[nextIdx], tx = C + (a[0] + b[0]) * 30 - (a[0] + b[0] < 0 ? 34 : 0), ty = C + (a[1] + b[1]) * 30 + 6;
+          lx.fillStyle = 'rgba(0,0,0,0.7)'; lx.fillText('90°', tx + 1, ty + 1); lx.fillStyle = '#ffffff'; lx.fillText('90°', tx, ty);
         }
         lx.fillStyle = AD_COLORS[nextIdx]; lx.beginPath(); lx.arc(C, C, 3.5, 0, Math.PI * 2); lx.fill();
         lx.font = 'bold 22px Space Mono, monospace'; lx.textAlign = 'center';
