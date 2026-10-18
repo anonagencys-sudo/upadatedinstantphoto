@@ -116,7 +116,7 @@
     .sc-gen-sub { font-size: 0.78rem; color: var(--text-dim); }
     .sc-gen-btns { display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center; }
     .sc-direct-lbl { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: #6b6b80; margin-left: 0.25rem; }
-    .fmt-btn.active { background: #2563eb; border-color: #3b82f6; color: #fff; }
+    .fmt-btn.active, .q-btn.active { background: #2563eb; border-color: #3b82f6; color: #fff; }
 
     .sc-pdf-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: none; margin-top: 0; }
     .sc-pdf-section.visible { display: block; }
@@ -193,6 +193,11 @@
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6M8 4h8l4 4v12a2 2 0 01-2 2H8a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>
           Certificate
         </button>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-2 -mt-4 mb-8 text-sm" id="qualityPicker">
+        <span class="text-gray-400">Print quality:</span>
+        <button class="q-btn px-4 py-1.5 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 font-semibold transition-all" data-q="std" title="300 DPI · photo background removal at preview size (¼ remove.bg credit)">Standard · 300 DPI</button>
+        <button class="q-btn active px-4 py-1.5 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 font-semibold transition-all" data-q="high" title="600 DPI · full-resolution background removal (1 remove.bg credit)">High · 600 DPI</button>
       </div>
 
       <!-- ===== PHOTO MODE ===== -->
@@ -1191,6 +1196,27 @@
     // ─── Export helpers (A4 @ 300 DPI) ────────────────────────────────
     const A4_MM = { w: 210, h: 297 };
     const A4_PX = { w: 2480, h: 3508 };
+    let printQuality = 'high';
+    const qDpi = () => printQuality === 'high' ? 600 : 300;
+    const a4Px = dpi => ({ w: Math.round(A4_MM.w / 25.4 * dpi), h: Math.round(A4_MM.h / 25.4 * dpi) });
+    function canvasSupported(w, h) {
+      try {
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const x = c.getContext('2d'); if (!x) return false;
+        x.fillStyle = '#000'; x.fillRect(w - 1, h - 1, 1, 1);
+        const ok = x.getImageData(w - 1, h - 1, 1, 1).data[3] === 255;
+        c.width = c.height = 0; return ok;
+      } catch (e) { return false; }
+    }
+    // Highest page DPI this browser can hold in one canvas (phones cap canvas size); PDFs aren't limited by this.
+    const _dpiCache = {};
+    function exportDpi() {
+      const want = qDpi();
+      if (_dpiCache[want]) return _dpiCache[want];
+      let got = 300;
+      for (const d of [600, 450, 400, 300]) { if (d > want) continue; const p = a4Px(d); if (canvasSupported(p.w, p.h)) { got = d; break; } }
+      return (_dpiCache[want] = got);
+    }
     const FMT_MIME = { png: 'image/png', jpg: 'image/jpeg' };
     const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
     function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
@@ -1213,11 +1239,11 @@
       return new Blob([out], { type: 'image/png' });
     }
     function canvasToBlob(canvas, fmt) {
-      return new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Export failed')), FMT_MIME[fmt], fmt === 'jpg' ? 0.95 : undefined));
+      return new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Export failed')), FMT_MIME[fmt], fmt === 'jpg' ? 0.97 : undefined));
     }
-    async function drawA4(canvas, items, widthPx) {
+    async function drawA4(canvas, items, widthPx, heightPx) {
       canvas.width = widthPx;
-      canvas.height = widthPx === A4_PX.w ? A4_PX.h : Math.round(widthPx * A4_MM.h / A4_MM.w);
+      canvas.height = heightPx || Math.round(widthPx * A4_MM.h / A4_MM.w);
       const ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
       const k = widthPx / A4_MM.w;
@@ -1234,8 +1260,11 @@
       return doc.output('blob');
     }
     async function buildA4Image(items, fmt) {
-      const canvas = await drawA4(document.createElement('canvas'), items, A4_PX.w);
-      return setImageDpi(await canvasToBlob(canvas, fmt), fmt);
+      const dpi = exportDpi(), p = a4Px(dpi);
+      const canvas = await drawA4(document.createElement('canvas'), items, p.w, p.h);
+      const blob = await setImageDpi(await canvasToBlob(canvas, fmt), fmt, dpi);
+      canvas.width = canvas.height = 0;
+      return blob;
     }
     const a4PreviewWidth = () => Math.max(320, Math.min(560, window.innerWidth - 60));
 
@@ -1319,13 +1348,14 @@
       return canvas;
     }
     // Downscale (high quality) to ~print size, enhance if enabled, encode.
-    const SCAN_MAX_PX = { ad: 1300, pn: 1300, ct: 3508 };
+    const SCAN_MAX_PX = { std: { ad: 1300, pn: 1300, ct: 3508 }, high: { ad: 2600, pn: 2600, ct: 7016 } };
+    const SCAN_MAX_AREA = { ad: 8e6, pn: 8e6, ct: 12e6 };
     const isEnhanceOn = key => { const el = document.querySelector(`.sc-enhance[data-sheet="${key}"]`); return !el || el.checked; };
     function finishScan(canvas, key) {
       let out = canvas;
-      const max = SCAN_MAX_PX[key], long = Math.max(canvas.width, canvas.height);
-      if (long > max) {
-        const s = max / long;
+      const max = SCAN_MAX_PX[printQuality][key], long = Math.max(canvas.width, canvas.height);
+      const s = Math.min(1, max / long, Math.sqrt(SCAN_MAX_AREA[key] / (canvas.width * canvas.height)));
+      if (s < 1) {
         out = document.createElement('canvas');
         out.width = Math.round(canvas.width * s); out.height = Math.round(canvas.height * s);
         const c = out.getContext('2d'); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
@@ -1863,7 +1893,7 @@
       const oldFile=photo[targetKey];
       const rotatedFile=await rotatePhotoFile(oldFile);
       photo[targetKey]=rotatedFile;
-      if(photo.cutout&&photo.cutoutSrc===oldFile){photo.cutout=await rotateImageEl(photo.cutout);photo.cutoutSrc=rotatedFile;photo._cutoutFor=rotatedFile;photo._cutoutPromise=null;}
+      for(const e of Object.values(photo._cuts||{})){if(e.img&&e.src===oldFile){e.img=await rotateImageEl(e.img);e.src=rotatedFile;e.promise=Promise.resolve(e.img);}}
       if(photo.previewUrl&&photo.previewUrl.startsWith('blob:')) URL.revokeObjectURL(photo.previewUrl);
       photo.previewUrl=URL.createObjectURL(rotatedFile);
       renderPhotoList();
@@ -1882,18 +1912,33 @@
       return response.blob();
     }
     // One remove.bg call per photo version; reused for preview, sheet and every download format.
+    // Standard: upload ≤0.25 MP (remove.bg preview, ¼ credit). High: up to 3000 px long side (full res, 1 credit).
+    async function prepareForRemoval(file){
+      const url=URL.createObjectURL(file);
+      try{
+        const img=await adLoadImg(url);const w=img.naturalWidth,h=img.naturalHeight;
+        const sc=printQuality==='high'?Math.min(1,3000/Math.max(w,h)):Math.min(1,Math.sqrt(240000/(w*h)));
+        if(sc>=0.999) return file;
+        const c=mkCanvas(Math.max(1,Math.round(w*sc)),Math.max(1,Math.round(h*sc))),x=c.getContext('2d');
+        x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(img,0,0,c.width,c.height);
+        const fmt=printQuality==='high'?'jpg':'png';
+        return new File([await canvasToBlob(c,fmt)],file.name.replace(/\.[^.]+$/,'')+'.'+fmt,{type:FMT_MIME[fmt]});
+      }finally{URL.revokeObjectURL(url);}
+    }
+    // One remove.bg call per photo version and quality; reused for preview, sheet and every download format.
+    function hasCutout(photo){const e=photo._cuts&&photo._cuts[printQuality];return !!(e&&e.img&&e.src===(photo.croppedFile||photo.originalFile));}
     async function getCutout(photo){
-      const src=photo.croppedFile||photo.originalFile;
-      if(photo.cutout&&photo.cutoutSrc===src) return photo.cutout;
-      if(photo._cutoutPromise&&photo._cutoutFor===src) return photo._cutoutPromise;
-      photo._cutoutFor=src;
-      photo._cutoutPromise=(async()=>{
-        const blob=await removePhotoBackground(src);
-        const img=await adLoadImg(URL.createObjectURL(blob));
-        if(photo._cutoutFor===src){photo.cutout=img;photo.cutoutSrc=src;}
-        return img;
+      const src=photo.croppedFile||photo.originalFile,q=printQuality;
+      photo._cuts=photo._cuts||{};
+      const e=photo._cuts[q];
+      if(e&&e.src===src) return e.img||e.promise;
+      const entry={src};photo._cuts[q]=entry;
+      entry.promise=(async()=>{
+        const blob=await removePhotoBackground(await prepareForRemoval(src));
+        entry.img=await adLoadImg(URL.createObjectURL(blob));
+        return entry.img;
       })();
-      try{return await photo._cutoutPromise;}catch(e){photo._cutoutPromise=null;throw e;}
+      try{return await entry.promise;}catch(err){if(photo._cuts[q]===entry) delete photo._cuts[q];throw err;}
     }
     async function rotateImageEl(img){
       const c=document.createElement('canvas');c.width=img.naturalHeight||img.height;c.height=img.naturalWidth||img.width;
@@ -1928,7 +1973,7 @@
       }
       const out=mkCanvas(outW,outH),ox=out.getContext('2d');
       ox.fillStyle=a.bg;ox.fillRect(0,0,outW,outH);ox.drawImage(subj,0,0);
-      if(a.enhance) enhanceCanvas(out,{levels:false,amount:0.55,threshold:2});
+      if(a.enhance) enhanceCanvas(out,{levels:false,amount:outH>=900?0.5:0.3,threshold:outH>=900?2:4}); // gentler at low res to avoid halos
       return out;
     }
     async function downloadSinglePhoto(){
@@ -1940,7 +1985,8 @@
       try{
         const cut=await getCutout(photo);
         const canvas=renderPassportPhoto(cut,cut.naturalWidth||cut.width,cut.naturalHeight||cut.height,getAdjust());
-        const blob=await setImageDpi(await canvasToBlob(canvas,fmt),fmt);
+        // tag DPI so the file prints at passport size (photo width = 383 px @ 300 DPI)
+        const blob=await setImageDpi(await canvasToBlob(canvas,fmt),fmt,Math.round(canvas.width/(383/300)));
         downloadPdfBlob(blob,`photo-${photos.indexOf(photo)+1}.${fmt}`);
         showNotification("Photo downloaded!",false);
       }finally{
@@ -1976,7 +2022,7 @@
     imageInput.addEventListener('change',()=>{addFiles(imageInput.files);imageInput.value='';});
     document.getElementById('addMoreBtn').addEventListener('click',()=>imageInput.click());
     function openCropper(id){const photo=photos.find(p=>p.id===id);if(!photo)return;pendingCropId=id;cropModalImage.src=photo.previewUrl;cropperModal.classList.remove('hidden');if(activeCropper)activeCropper.destroy();activeCropper=new Cropper(cropModalImage,{aspectRatio:384/472,viewMode:1,dragMode:'move',autoCropArea:1});}
-    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;activeCropper.getCroppedCanvas({width:400,height:480,imageSmoothingEnabled:true,imageSmoothingQuality:'high'}).toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/png'});photo.previewUrl=URL.createObjectURL(blob);activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);},'image/png');});
+    document.getElementById('confirmCropBtn').addEventListener('click',()=>{if(!activeCropper||pendingCropId===null)return;(()=>{const d=activeCropper.getData(true);const H=Math.max(480,Math.min(1440,Math.round(d.height)));return activeCropper.getCroppedCanvas({width:Math.round(H*384/472),height:H,imageSmoothingEnabled:true,imageSmoothingQuality:'high'});})().toBlob(blob=>{const photo=photos.find(p=>p.id===pendingCropId);if(!photo)return;photo.croppedFile=new File([blob],'cropped-'+photo.originalFile.name,{type:'image/png'});photo.previewUrl=URL.createObjectURL(blob);activeCropper.destroy();activeCropper=null;pendingCropId=null;cropperModal.classList.add('hidden');renderPhotoList();showNotification("Photo cropped successfully.",false);},'image/png');});
     document.getElementById('cancelCropBtn').addEventListener('click',()=>{if(activeCropper){activeCropper.destroy();activeCropper=null;}pendingCropId=null;cropperModal.classList.add('hidden');});
     document.getElementById('toggleAdvanced').addEventListener('click',function(){const el=document.getElementById('advancedOptions');const visible=el.style.display==='block';el.style.display=visible?'none':'block';this.textContent=visible?'Advanced Options':'Hide Advanced Options';});
     downloadPhotoBtn.addEventListener('click',()=>{downloadSinglePhoto().catch(e=>showNotification(e&&e.message?e.message:"Could not download photo. Try again."));});
@@ -1996,50 +2042,67 @@
     function sheetKey(){
       return {
         files:photos.map(p=>p.croppedFile||p.originalFile),
-        meta:JSON.stringify([photos.map(p=>p.copies),document.getElementById('height').value,document.getElementById('border').value,getAdjust()])
+        meta:JSON.stringify([photos.map(p=>p.copies),document.getElementById('height').value,document.getElementById('border').value,getAdjust(),printQuality])
       };
     }
     const sameKey=(a,b)=>a.meta===b.meta&&a.files.length===b.files.length&&a.files.every((f,i)=>f===b.files[i]);
-    // Same A4 layout as the server: 300 DPI, 6 per row.
+    // Same A4 layout as the server (defined in 300-DPI units, 6 per row); photos rendered at the chosen DPI.
     async function fetchSheetPages(){
       const key=sheetKey();
-      if(sheetCache&&sameKey(sheetCache.key,key)) return sheetCache.pages;
+      if(sheetCache&&sameKey(sheetCache.key,key)) return sheetCache.sheet;
       const A4W=2480,A4H=3508,MX=40,MY=20,HG=15,VG=12,PER_ROW=6;
       const border=clampInt(document.getElementById('border').value,0,20,2);
       const photoH=clampInt(document.getElementById('height').value,200,1000,480);
       const pasteW=Math.floor((A4W-2*MX-(PER_ROW-1)*HG)/PER_ROW), photoW=Math.max(1,pasteW-2*border), pasteH=photoH+2*border;
-      const adj=getAdjust();
+      const k=qDpi()/300, adj=getAdjust();
       const cuts=await Promise.all(photos.map(getCutout));
-      const pages=[];let page=null,x=MX,y=MY;
-      const newPage=()=>{page=mkCanvas(A4W,A4H);const c=page.getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,A4W,A4H);pages.push(page);x=MX;y=MY;};
-      newPage();
+      const rendered=cuts.map(c=>renderPassportPhoto(c,Math.round(photoW*k),Math.round(photoH*k),adj));
+      const pages=[[]];let x=MX,y=MY;
       photos.forEach((p,i)=>{
-        const ph=renderPassportPhoto(cuts[i],photoW,photoH,adj);
         const copies=clampInt(p.copies,1,54,6);
-        const ctx=()=>page.getContext('2d');
-        for(let k=0;k<copies;k++){
+        for(let n=0;n<copies;n++){
           if(x+pasteW>A4W-MX){x=MX;y+=pasteH+VG;}
-          if(y+pasteH>A4H-MY) newPage();
-          const c=ctx();
-          if(border){c.fillStyle='#000';c.fillRect(x,y,photoW+2*border,pasteH);}
-          c.drawImage(ph,x+border,y+border);
+          if(y+pasteH>A4H-MY){pages.push([]);x=MX;y=MY;}
+          pages[pages.length-1].push({i,x,y});
           x+=pasteW+HG;
         }
       });
-      sheetCache={key,pages};
-      return pages;
+      const sheet={pages,photos:rendered,border,photoW,photoH};
+      sheetCache={key,sheet};
+      return sheet;
     }
-    async function sheetFiles(pages,fmt){
+    function drawSheetPage(sheet,pi,dpi){
+      const p=a4Px(dpi),s=dpi/300,c=mkCanvas(p.w,p.h),x=c.getContext('2d');
+      x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
+      x.fillStyle='#fff';x.fillRect(0,0,p.w,p.h);
+      const {border:b,photoW:w,photoH:h}=sheet;
+      for(const it of sheet.pages[pi]){
+        if(b){x.fillStyle='#000';x.fillRect(it.x*s,it.y*s,(w+2*b)*s,(h+2*b)*s);}
+        x.drawImage(sheet.photos[it.i],(it.x+b)*s,(it.y+b)*s,w*s,h*s);
+      }
+      return c;
+    }
+    async function sheetFiles(sheet,fmt){
       if(fmt==='pdf'){
         const { jsPDF } = window.jspdf;
         const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-        pages.forEach((c,i)=>{if(i) doc.addPage('a4','portrait');doc.addImage(c.toDataURL('image/jpeg',0.98),'JPEG',0,0,A4_MM.w,A4_MM.h);});
+        const mm=u=>u*25.4/300, {border:b,photoW:w,photoH:h}=sheet;
+        const data=sheet.photos.map(c=>c.toDataURL('image/jpeg',0.98)); // embedded once each, reused by alias
+        sheet.pages.forEach((page,pi)=>{
+          if(pi) doc.addPage('a4','portrait');
+          for(const it of page){
+            if(b){doc.setFillColor(0,0,0);doc.rect(mm(it.x),mm(it.y),mm(w+2*b),mm(h+2*b),'F');}
+            doc.addImage(data[it.i],'JPEG',mm(it.x+b),mm(it.y+b),mm(w),mm(h),`photo${it.i}`);
+          }
+        });
         return [{blob:doc.output('blob'),name:'passport-sheet.pdf'}];
       }
-      const files=[];
-      for(let i=0;i<pages.length;i++){
-        const name=pages.length===1?`passport-sheet.${fmt}`:`passport-sheet-${i+1}.${fmt}`;
-        files.push({blob:await setImageDpi(await canvasToBlob(pages[i],fmt),fmt),name});
+      const dpi=exportDpi(),files=[];
+      for(let i=0;i<sheet.pages.length;i++){
+        const name=sheet.pages.length===1?`passport-sheet.${fmt}`:`passport-sheet-${i+1}.${fmt}`;
+        const c=drawSheetPage(sheet,i,dpi);
+        files.push({blob:await setImageDpi(await canvasToBlob(c,fmt),fmt,dpi),name});
+        c.width=c.height=0;
       }
       return files;
     }
@@ -2052,9 +2115,10 @@
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       setSheetBusy(true);
       try{
-        const pages=await fetchSheetPages();
-        await downloadFiles(await sheetFiles(pages,fmt));
-        showNotification(pages.length>1&&fmt!=='pdf'?`${pages.length} pages downloaded!`:`${FMT_LABEL[fmt]} downloaded!`,false);
+        const sheet=await fetchSheetPages();
+        await downloadFiles(await sheetFiles(sheet,fmt));
+        const n=sheet.pages.length;
+        showNotification(n>1&&fmt!=='pdf'?`${n} pages downloaded!`:`${FMT_LABEL[fmt]} downloaded!`,false);
       }catch(e){showNotification(e.message||"Processing failed. Try again.");}
       finally{setSheetBusy(false);}
     }
@@ -2062,11 +2126,11 @@
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       setSheetBusy(true);sheetDownloads.classList.add('hidden');sheetPreview.classList.add('hidden');
       try{
-        const pages=await fetchSheetPages();
+        const sheet=await fetchSheetPages(),pages=sheet.pages;
         sheetPreview.innerHTML='';
-        pages.forEach((c,i)=>{
+        pages.forEach((_,i)=>{
           const img=document.createElement('img');
-          img.src=c.toDataURL('image/jpeg',0.85);img.alt=`Sheet page ${i+1}`;
+          img.src=drawSheetPage(sheet,i,150).toDataURL('image/jpeg',0.9);img.alt=`Sheet page ${i+1}`;
           img.className='w-full max-w-xl mx-auto bg-white rounded-lg shadow-lg';
           sheetPreview.appendChild(img);
         });
@@ -2096,12 +2160,12 @@
       const photo=photos[livePickIndex()];
       const border=clampInt(document.getElementById('border').value,0,20,2);
       const h=clampInt(document.getElementById('height').value,200,1000,480);
-      const w=Math.max(1,Math.floor((2480-80-75)/6)-2*border);
+      const k=qDpi()/300,w=Math.round(Math.max(1,Math.floor((2480-80-75)/6)-2*border)*k),hk=Math.round(h*k);
       try{
-        if(!(photo.cutout&&photo.cutoutSrc===(photo.croppedFile||photo.originalFile))){livePreviewBtn.innerHTML='Removing background…';}
+        if(!hasCutout(photo)){livePreviewBtn.innerHTML='Removing background…';}
         const cut=await getCutout(photo);
-        const out=renderPassportPhoto(cut,w,h,getAdjust());
-        livePreview.width=w;livePreview.height=h;livePreview.getContext('2d').drawImage(out,0,0);
+        const out=renderPassportPhoto(cut,w,hk,getAdjust());
+        livePreview.width=w;livePreview.height=hk;livePreview.getContext('2d').drawImage(out,0,0);
         livePreview.style.objectFit='contain';
         livePreview.classList.remove('hidden');livePreviewBtn.classList.add('hidden');
       }catch(e){
@@ -2127,6 +2191,18 @@
     });
     ['enhanceToggle','height','border'].forEach(id=>document.getElementById(id).addEventListener('input',schedulePreview));
     document.getElementById('enhanceToggle').addEventListener('change',schedulePreview);
+
+    document.querySelectorAll('.q-btn').forEach(btn=>btn.addEventListener('click',()=>{
+      if(printQuality===btn.dataset.q) return;
+      printQuality=btn.dataset.q;
+      document.querySelectorAll('.q-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      sheetCache=null;
+      [adFront,adBack].forEach(s=>{if(s._rawCanvas) adBakeAdjusted(s);});
+      if(pn._rawCanvas) pnBakeAdjusted();
+      if(ct._rawCanvas) ctBakeAdjusted();
+      schedulePreview();
+      showNotification(printQuality==='high'?'High quality · 600 DPI':'Standard quality · 300 DPI',false);
+    }));
 
     // ─── Aadhaar / PAN / Certificate: direct + PNG / JPG downloads ───
     const SCANNER_SHEETS={
