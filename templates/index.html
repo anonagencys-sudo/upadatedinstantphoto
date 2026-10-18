@@ -255,6 +255,8 @@
               <select id="livePreviewPick" class="hidden w-40 bg-gray-700 border border-gray-600 rounded-lg p-1.5 text-xs"></select>
             </div>
             <div class="flex-1 space-y-3">
+              <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none" title="Turn off to give each photo its own brightness, contrast, saturation and blend"><input type="checkbox" id="adjLinkAll" checked class="w-4 h-4 accent-blue-500"/> Same settings for all photos</label>
+              <p id="adjEditing" class="hidden text-xs text-amber-300"></p>
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>☀ Brightness</span><span id="adjBrightnessVal">100</span></div><input type="range" id="adjBrightness" min="50" max="150" value="100" class="adj-slider w-full accent-blue-500"/></div>
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>◐ Contrast</span><span id="adjContrastVal">100</span></div><input type="range" id="adjContrast" min="50" max="150" value="100" class="adj-slider w-full accent-blue-500"/></div>
               <div><div class="flex justify-between text-xs text-gray-400 mb-1"><span>🎨 Saturation</span><span id="adjSaturationVal">100</span></div><input type="range" id="adjSaturation" min="0" max="200" value="100" class="adj-slider w-full accent-blue-500"/></div>
@@ -1982,9 +1984,15 @@
       return adLoadImg(c.toDataURL('image/png'));
     }
     // Passport photo renderer: adjustments → subject levels → blend with bg → composite → print sharpen.
-    function getAdjust(){
-      const v=id=>parseInt(document.getElementById(id).value);
-      return {brightness:v('adjBrightness'),contrast:v('adjContrast'),saturation:v('adjSaturation'),blend:v('adjBlend'),
+    // Tone (brightness/contrast/saturation/blend) is shared by default; unlinked, each photo keeps its own.
+    const TONE_IDS={brightness:'adjBrightness',contrast:'adjContrast',saturation:'adjSaturation',blend:'adjBlend'};
+    const TONE_DEFAULT={brightness:100,contrast:100,saturation:100,blend:20};
+    let toneLinked=true,sharedTone={...TONE_DEFAULT};
+    function readSliders(){const o={};for(const k in TONE_IDS)o[k]=parseInt(document.getElementById(TONE_IDS[k]).value);return o;}
+    function writeSliders(t){for(const k in TONE_IDS){document.getElementById(TONE_IDS[k]).value=t[k];document.getElementById(TONE_IDS[k]+'Val').textContent=t[k];}}
+    function toneOf(photo){if(toneLinked||!photo)return readSliders();return photo.adj||(photo.adj={...sharedTone});}
+    function getAdjust(photo){
+      return {...toneOf(photo),
         bg:document.getElementById('bgColorValue').value||'#FFFFFF',enhance:document.getElementById('enhanceToggle').checked,round:document.getElementById('adjRound').checked};
     }
     // Photo with optional border and rounded corners (2 mm radius). transparent=true leaves corners see-through.
@@ -2029,7 +2037,7 @@
       downloadPhotoBtn.textContent='Processing...';
       try{
         const cut=await getCutout(photo);
-        const adj=getAdjust(),base=renderPassportPhoto(cut,cut.naturalWidth||cut.width,cut.naturalHeight||cut.height,adj);
+        const adj=getAdjust(photo),base=renderPassportPhoto(cut,cut.naturalWidth||cut.width,cut.naturalHeight||cut.height,adj);
         const canvas=framePhoto(base,0,adj.round,base.width*2/32.4,fmt==='png');
         // tag DPI so the file prints at passport size (photo width = 383 px @ 300 DPI)
         const blob=await setImageDpi(await canvasToBlob(canvas,fmt),fmt,Math.round(canvas.width/(383/300)));
@@ -2102,7 +2110,7 @@
     function sheetKey(){
       return {
         files:photos.map(p=>p.croppedFile||p.originalFile),
-        meta:JSON.stringify([photos.map(p=>p.copies),document.getElementById('height').value,document.getElementById('border').value,getAdjust(),printQuality])
+        meta:JSON.stringify([photos.map(p=>p.copies),document.getElementById('height').value,document.getElementById('border').value,photos.map(p=>getAdjust(p)),printQuality])
       };
     }
     const sameKey=(a,b)=>a.meta===b.meta&&a.files.length===b.files.length&&a.files.every((f,i)=>f===b.files[i]);
@@ -2114,10 +2122,10 @@
       const border=clampInt(document.getElementById('border').value,0,20,2);
       const photoH=clampInt(document.getElementById('height').value,200,1000,480);
       const pasteW=Math.floor((A4W-2*MX-(PER_ROW-1)*HG)/PER_ROW), photoW=Math.max(1,pasteW-2*border), pasteH=photoH+2*border;
-      const k=qDpi()/300, adj=getAdjust();
+      const k=qDpi()/300;
       const cuts=await Promise.all(photos.map(getCutout));
       const rmm=2/25.4*300*k; // 2 mm corner radius in px
-      const rendered=cuts.map(c=>framePhoto(renderPassportPhoto(c,Math.round(photoW*k),Math.round(photoH*k),adj),Math.round(border*k),adj.round,rmm,false));
+      const rendered=cuts.map((c,i)=>{const a=getAdjust(photos[i]);return framePhoto(renderPassportPhoto(c,Math.round(photoW*k),Math.round(photoH*k),a),Math.round(border*k),a.round,rmm,false);});
       const pages=[[]];let x=MX,y=MY;
       photos.forEach((p,i)=>{
         const copies=clampInt(p.copies,1,54,6);
@@ -2210,7 +2218,8 @@
       const keep=livePick.value;
       livePick.innerHTML=photos.map((p,i)=>`<option value="${i}">Photo ${i+1}: ${p.originalFile.name.replace(/[<>&"]/g,'')}</option>`).join('');
       if(keep&&parseInt(keep)<photos.length) livePick.value=keep;
-      livePick.classList.toggle('hidden',!liveOn||photos.length<2);
+      livePick.classList.toggle('hidden',photos.length<2||(toneLinked&&!liveOn));
+      updateToneHint();
       if(!photos.length){liveOn=false;livePreview.classList.add('hidden');livePreviewBtn.classList.remove('hidden');}
       else schedulePreview();
     }
@@ -2223,8 +2232,8 @@
       try{
         if(!hasCutout(photo)){livePreviewBtn.innerHTML='Removing background…';}
         const cut=await getCutout(photo);
-        const out=renderPassportPhoto(cut,w,hk,getAdjust());
-        const shown=framePhoto(out,0,getAdjust().round,w*2/32.4,true);
+        const adj=getAdjust(photo),out=renderPassportPhoto(cut,w,hk,adj);
+        const shown=framePhoto(out,0,adj.round,w*2/32.4,true);
         livePreview.width=w;livePreview.height=hk;const lx=livePreview.getContext('2d');lx.clearRect(0,0,w,hk);lx.drawImage(shown,0,0);
         livePreview.style.objectFit='contain';
         livePreview.classList.remove('hidden');livePreviewBtn.classList.add('hidden');
@@ -2241,13 +2250,35 @@
       if(!photos.length){showNotification("Please upload at least one photo.");return;}
       liveOn=true;refreshLivePicker();
     });
-    livePick.addEventListener('change',schedulePreview);
+    function updateToneHint(){
+      const h=document.getElementById('adjEditing');
+      const show=!toneLinked&&photos.length>0;
+      h.classList.toggle('hidden',!show);
+      if(show) h.textContent=photos.length>1?`Editing Photo ${livePickIndex()+1} only — choose another photo from the list under the preview`:'Editing this photo only';
+    }
+    livePick.addEventListener('change',()=>{
+      if(!toneLinked&&photos.length) writeSliders(toneOf(photos[livePickIndex()]));
+      updateToneHint();schedulePreview();
+    });
     document.querySelectorAll('.adj-slider').forEach(sl=>sl.addEventListener('input',()=>{
-      document.getElementById(sl.id+'Val').textContent=sl.value;schedulePreview();
+      document.getElementById(sl.id+'Val').textContent=sl.value;
+      if(!toneLinked&&photos.length) photos[livePickIndex()].adj=readSliders();
+      schedulePreview();
     }));
     document.getElementById('adjReset').addEventListener('click',()=>{
-      [['adjBrightness',100],['adjContrast',100],['adjSaturation',100],['adjBlend',20]].forEach(([id,v])=>{document.getElementById(id).value=v;document.getElementById(id+'Val').textContent=v;});
+      writeSliders(TONE_DEFAULT);
+      if(!toneLinked&&photos.length) photos[livePickIndex()].adj={...TONE_DEFAULT};
       schedulePreview();
+    });
+    document.getElementById('adjLinkAll').addEventListener('change',e=>{
+      if(e.target.checked){ toneLinked=true; } // the values now on the sliders apply to every photo
+      else{
+        toneLinked=false; sharedTone=readSliders();
+        photos.forEach(p=>p.adj={...sharedTone});
+        if(photos.length) writeSliders(photos[livePickIndex()].adj);
+      }
+      refreshLivePicker();
+      showNotification(toneLinked?'Same settings for all photos':'Each photo now has its own settings',false);
     });
     ['enhanceToggle','height','border'].forEach(id=>document.getElementById(id).addEventListener('input',schedulePreview));
     document.getElementById('enhanceToggle').addEventListener('change',schedulePreview);
