@@ -2346,19 +2346,37 @@
       const loupe = document.getElementById('cornerLoupe'), lx = loupe.getContext('2d');
       const L = 300, Z = 5; // backing px (shown at 150 css px, sharp on retina) and zoom vs. the on-screen canvas
       const targets = [
-        { canvas: () => document.getElementById('adFrontCanvas'), st: () => adFront },
-        { canvas: () => document.getElementById('adBackCanvas'),  st: () => adBack },
-        { canvas: () => document.getElementById('pnCanvas'),      st: () => pn },
-        { canvas: () => document.getElementById('ctCanvas'),      st: () => ct },
+        { canvas: () => document.getElementById('adFrontCanvas'), st: () => adFront, redraw: () => adRedraw(adFront) },
+        { canvas: () => document.getElementById('adBackCanvas'),  st: () => adBack,  redraw: () => adRedraw(adBack) },
+        { canvas: () => document.getElementById('pnCanvas'),      st: () => pn,      redraw: () => pnRedraw() },
+        { canvas: () => document.getElementById('ctCanvas'),      st: () => ct,      redraw: () => ctRedraw() },
       ];
       function hide() { loupe.style.display = 'none'; }
+      // Corners go TL→TR→BR→BL; the edges through the active point join it to its neighbours.
+      function activeEdges(s) {
+        const n = s.points.length, i = s.draggingIdx !== -1 ? s.draggingIdx : n;
+        if (i > 3) return { i: -1, nb: [] };
+        const nb = [];
+        if (s.draggingIdx !== -1) { [s.points[(i + 3) % 4], s.points[(i + 1) % 4]].forEach(p => p && nb.push(p)); }
+        else { if (n > 0) nb.push(s.points[n - 1]); if (n === 3) nb.push(s.points[0]); }
+        return { i, nb };
+      }
+      // Live edge lines on the main image while hovering/dragging
+      function drawMainEdges(t, s, pos) {
+        const { i, nb } = activeEdges(s); t.redraw();
+        if (i === -1 || !nb.length) return;
+        const x = t.canvas().getContext('2d');
+        x.save(); x.strokeStyle = AD_COLORS[i]; x.lineWidth = 1.5;
+        nb.forEach(p => { x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(pos.x, pos.y); x.stroke(); });
+        x.restore();
+      }
       function draw(t, e) {
         const c = t.canvas(), s = t.st();
         if (!c || !s.originalImage || c.style.display === 'none') return hide();
         const r = c.getBoundingClientRect(), sx = c.width / r.width, sy = c.height / r.height;
         const pos = { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
         const near = s.points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < DRAG_R);
-        if (!(e.buttons || e.pointerType === 'touch' || s.points.length < 4 || near || s.draggingIdx !== -1)) return hide();
+        if (!(e.buttons || e.pointerType === 'touch' || s.points.length < 4 || near || s.draggingIdx !== -1)) { t.redraw(); return hide(); }
         // source window in original-image pixels (full resolution → sharp detail)
         // 150 css px loupe at Z× zoom shows (150/Z) css px of the canvas → canvas px (×sx) → original px (÷scale)
         const half = (150 / Z) * sx / s.scale / 2, cx = pos.x / s.scale, cy = pos.y / s.scale;
@@ -2375,13 +2393,24 @@
           lx.strokeStyle = 'rgba(0,229,255,0.85)'; lx.lineWidth = 2; lx.setLineDash([8, 6]); lx.stroke(); lx.setLineDash([]);
         }
         pts.forEach((p, i) => { lx.beginPath(); lx.arc(p.x, p.y, 7, 0, Math.PI * 2); lx.strokeStyle = AD_COLORS[i]; lx.lineWidth = 3; lx.stroke(); });
-        // crosshair at the exact pick point
-        const nextIdx = s.draggingIdx !== -1 ? s.draggingIdx : Math.min(s.points.length, 3);
-        lx.strokeStyle = 'rgba(0,0,0,0.75)'; lx.lineWidth = 5;
-        lx.beginPath(); lx.moveTo(L / 2 - 26, L / 2); lx.lineTo(L / 2 + 26, L / 2); lx.moveTo(L / 2, L / 2 - 26); lx.lineTo(L / 2, L / 2 + 26); lx.stroke();
-        lx.strokeStyle = AD_COLORS[nextIdx]; lx.lineWidth = 2; lx.stroke();
-        lx.font = 'bold 22px Space Mono, monospace'; lx.fillStyle = AD_COLORS[nextIdx]; lx.textAlign = 'center';
-        if (s.points.length < 4 || s.draggingIdx !== -1) lx.fillText(PT_LABELS[nextIdx], L / 2, L - 22);
+        // the actual crop edges through this point (extended across the loupe), instead of a cross
+        const { i: act, nb } = activeEdges(s), nextIdx = act === -1 ? 3 : act;
+        const C = L / 2, ppo = L / (half * 2) / s.scale; // loupe px per on-screen-canvas px
+        nb.forEach(p => {
+          const dx = (p.x - pos.x) * ppo, dy = (p.y - pos.y) * ppo, len = Math.hypot(dx, dy) || 1;
+          const ux = dx / len, uy = dy / len, far = L; // run the edge through the whole loupe
+          lx.lineCap = 'round';
+          lx.strokeStyle = 'rgba(0,0,0,0.7)'; lx.lineWidth = 6;
+          lx.beginPath(); lx.moveTo(C - ux * far * 0.15, C - uy * far * 0.15); lx.lineTo(C + ux * far, C + uy * far); lx.stroke();
+          lx.strokeStyle = AD_COLORS[nextIdx]; lx.lineWidth = 2.5; lx.stroke();
+        });
+        if (!nb.length) { // first corner: no edge yet, show a small target ring
+          lx.strokeStyle = 'rgba(0,0,0,0.7)'; lx.lineWidth = 5; lx.beginPath(); lx.arc(C, C, 10, 0, Math.PI * 2); lx.stroke();
+          lx.strokeStyle = AD_COLORS[nextIdx]; lx.lineWidth = 2; lx.stroke();
+        }
+        lx.fillStyle = AD_COLORS[nextIdx]; lx.beginPath(); lx.arc(C, C, 3.5, 0, Math.PI * 2); lx.fill();
+        lx.font = 'bold 22px Space Mono, monospace'; lx.textAlign = 'center';
+        if (act !== -1) { lx.fillStyle = 'rgba(0,0,0,0.6)'; lx.fillText(PT_LABELS[nextIdx], C + 1, L - 21); lx.fillStyle = AD_COLORS[nextIdx]; lx.fillText(PT_LABELS[nextIdx], C, L - 22); }
         lx.restore();
         loupe.style.borderColor = AD_COLORS[nextIdx];
         // place it away from the finger/cursor, kept on screen
@@ -2392,6 +2421,7 @@
         loupe.style.left = Math.max(8, Math.min(vw - size - 8, left)) + 'px';
         loupe.style.top = Math.max(8, Math.min(vh - size - 8, top)) + 'px';
         loupe.style.display = 'block';
+        drawMainEdges(t, s, pos);
       }
       targets.forEach(t => {
         const c = t.canvas(); if (!c) return;
@@ -2400,7 +2430,7 @@
         c.addEventListener('pointerdown', sched);
         c.addEventListener('pointermove', sched);
         c.addEventListener('pointerup', e => { if (e.pointerType === 'touch') hide(); else sched(e); });
-        c.addEventListener('pointerleave', hide);
+        c.addEventListener('pointerleave', () => { hide(); const s = t.st(); if (s.originalImage && c.style.display !== 'none') t.redraw(); });
         c.addEventListener('pointercancel', hide);
       });
       window.addEventListener('scroll', hide, { passive: true });
