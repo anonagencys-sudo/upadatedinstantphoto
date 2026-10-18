@@ -870,6 +870,15 @@
     // AADHAAR SCANNER
     // ════════════════════════════════════════════════════════════════
     const AD_COLORS = ['#00e5ff','#ff3d6b','#ffd600','#00ff88'];
+    // Precision drag: a grabbed corner moves at DRAG_SLOW × the finger/mouse movement (no jump on grab).
+    const DRAG_SLOW = 0.4;
+    function startSlowDrag(st, idx, ptr) { st._drag = { ptr: { x: ptr.x, y: ptr.y }, pt: { x: st.points[idx].x, y: st.points[idx].y } }; }
+    function slowPos(st, ptr, canvas) {
+      const d = st._drag; if (!d) return ptr;
+      const W = canvas._cssW || canvas.width, H = canvas._cssH || canvas.height;
+      return { x: Math.max(0, Math.min(W, d.pt.x + (ptr.x - d.ptr.x) * DRAG_SLOW)),
+               y: Math.max(0, Math.min(H, d.pt.y + (ptr.y - d.ptr.y) * DRAG_SLOW)) };
+    }
     // Crisp corner-picking canvases: backing store at devicePixelRatio, logic stays in CSS px.
     function hiDpiSize(canvas, W, H) {
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -995,10 +1004,10 @@
       const down = e => {
         if (!side.originalImage) return; e.preventDefault();
         const pos = adGetPos(e, c); const near = adFindNearest(side.points, pos);
-        if (near !== -1) { side.draggingIdx = near; return; }
+        if (near !== -1) { side.draggingIdx = near; startSlowDrag(side, near, pos); return; }
         if (side.points.length < 4) { side.points.push(pos); adRedraw(side); adUpdateChips(side); if (side.points.length===4) scToast('4 corners set — press Crop','ok'); }
       };
-      const move = e => { if (side.draggingIdx===-1) return; e.preventDefault(); side.points[side.draggingIdx]=adGetPos(e,c); adRedraw(side); adUpdateChips(side); };
+      const move = e => { if (side.draggingIdx===-1) return; e.preventDefault(); side.points[side.draggingIdx]=slowPos(side, adGetPos(e,c), c); adRedraw(side); adUpdateChips(side); };
       const up   = () => { side.draggingIdx=-1; adUpdateChips(side); };
       c.addEventListener('mousedown', down); c.addEventListener('mousemove', move); c.addEventListener('mouseup', up);
       c.addEventListener('touchstart', down, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); c.addEventListener('touchend', up);
@@ -1624,11 +1633,11 @@
       pn.points.forEach((p,i)=>{const d=Math.hypot(p.x-pos.x,p.y-pos.y);if(d<DRAG_R&&d<minD){minD=d;idx=i;}});
       return idx;
     }
-    pn.canvas.addEventListener('mousedown',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set — press Crop','ok');}});
-    pn.canvas.addEventListener('mousemove',e=>{if(pn.draggingIdx===-1)return;e.preventDefault();pn.points[pn.draggingIdx]=pnGetPos(e);pnRedraw();pnUpdateChips();});
+    pn.canvas.addEventListener('mousedown',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;startSlowDrag(pn,near,pos);return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set — press Crop','ok');}});
+    pn.canvas.addEventListener('mousemove',e=>{if(pn.draggingIdx===-1)return;e.preventDefault();pn.points[pn.draggingIdx]=slowPos(pn,pnGetPos(e),pn.canvas);pnRedraw();pnUpdateChips();});
     pn.canvas.addEventListener('mouseup',()=>{pn.draggingIdx=-1;pnUpdateChips();});
-    pn.canvas.addEventListener('touchstart',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set','ok');}},{passive:false});
-    pn.canvas.addEventListener('touchmove',e=>{if(pn.draggingIdx===-1)return;e.preventDefault();pn.points[pn.draggingIdx]=pnGetPos(e);pnRedraw();pnUpdateChips();},{passive:false});
+    pn.canvas.addEventListener('touchstart',e=>{if(!pn.originalImage)return;e.preventDefault();const pos=pnGetPos(e);const near=pnFindNearest(pos);if(near!==-1){pn.draggingIdx=near;startSlowDrag(pn,near,pos);return;}if(pn.points.length<4){pn.points.push(pos);pnRedraw();pnUpdateChips();if(pn.points.length===4)scToast('4 corners set','ok');}},{passive:false});
+    pn.canvas.addEventListener('touchmove',e=>{if(pn.draggingIdx===-1)return;e.preventDefault();pn.points[pn.draggingIdx]=slowPos(pn,pnGetPos(e),pn.canvas);pnRedraw();pnUpdateChips();},{passive:false});
     pn.canvas.addEventListener('touchend',()=>{pn.draggingIdx=-1;pnUpdateChips();});
 
     document.getElementById('pnFileInput').addEventListener('change',e=>{
@@ -1848,26 +1857,26 @@
       if(!ct.originalImage)return;
       e.preventDefault();
       const pos=ctGetPos(e), near=ctFindNearest(pos);
-      if(near!==-1){ct.draggingIdx=near;return;}
+      if(near!==-1){ct.draggingIdx=near;startSlowDrag(ct,near,pos);return;}
       if(ct.points.length<4){ct.points.push(pos);ctRedraw();ctUpdateChips();if(ct.points.length===4)scToast('4 corners set - press Crop','ok');}
     });
     ct.canvas.addEventListener('mousemove',e=>{
       if(ct.draggingIdx===-1)return;
       e.preventDefault();
-      ct.points[ct.draggingIdx]=ctGetPos(e);ctRedraw();ctUpdateChips();
+      ct.points[ct.draggingIdx]=slowPos(ct,ctGetPos(e),ct.canvas);ctRedraw();ctUpdateChips();
     });
     ct.canvas.addEventListener('mouseup',()=>{ct.draggingIdx=-1;ctUpdateChips();});
     ct.canvas.addEventListener('touchstart',e=>{
       if(!ct.originalImage)return;
       e.preventDefault();
       const pos=ctGetPos(e), near=ctFindNearest(pos);
-      if(near!==-1){ct.draggingIdx=near;return;}
+      if(near!==-1){ct.draggingIdx=near;startSlowDrag(ct,near,pos);return;}
       if(ct.points.length<4){ct.points.push(pos);ctRedraw();ctUpdateChips();if(ct.points.length===4)scToast('4 corners set - press Crop','ok');}
     },{passive:false});
     ct.canvas.addEventListener('touchmove',e=>{
       if(ct.draggingIdx===-1)return;
       e.preventDefault();
-      ct.points[ct.draggingIdx]=ctGetPos(e);ctRedraw();ctUpdateChips();
+      ct.points[ct.draggingIdx]=slowPos(ct,ctGetPos(e),ct.canvas);ctRedraw();ctUpdateChips();
     },{passive:false});
     ct.canvas.addEventListener('touchend',()=>{ct.draggingIdx=-1;ctUpdateChips();});
 
@@ -2511,8 +2520,8 @@
           x.moveTo(cx + a[0] * box, cy + a[1] * box); x.lineTo(cx + (a[0] + b[0]) * box, cy + (a[1] + b[1]) * box); x.lineTo(cx + b[0] * box, cy + b[1] * box);
         };
         x.save(); x.lineCap = 'round'; x.lineJoin = 'round';
-        path(); x.strokeStyle = 'rgba(0,0,0,0.7)'; x.lineWidth = lw + 3; x.stroke();
-        path(); x.strokeStyle = '#ffffff'; x.lineWidth = lw; x.stroke();
+        x.globalAlpha = 0.35; path(); x.strokeStyle = '#000'; x.lineWidth = lw + 3; x.stroke();
+        x.globalAlpha = 0.7;  path(); x.strokeStyle = AD_COLORS[idx]; x.lineWidth = lw; x.stroke();
         x.restore();
       }
       // Last corner: the spot that makes a perfect rectangle with the other three (prev + next − opposite).
@@ -2562,8 +2571,9 @@
         const c = t.canvas(), s = t.st();
         if (!c || !s.originalImage || c.style.display === 'none') return hide();
         const r = c.getBoundingClientRect(), sx = cw(c) / r.width, sy = ch(c) / r.height;
-        const pos = { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+        let pos = { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
         const near = s.points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) < DRAG_R);
+        if (s.draggingIdx !== -1 && s.points[s.draggingIdx]) pos = { x: s.points[s.draggingIdx].x, y: s.points[s.draggingIdx].y }; // slow drag: follow the corner
         if (!(e.buttons || e.pointerType === 'touch' || s.points.length < 4 || near || s.draggingIdx !== -1)) { t.redraw(); return hide(); }
         // source window in original-image pixels (full resolution → sharp detail)
         // Adaptive zoom: magnify up to 5×, but never stretch the photo's real pixels more than ~1.5×
@@ -2633,7 +2643,7 @@
           drawRightAngle(lx, C, C, nextIdx, L * 0.42, 18, 2.5);
           lx.font = 'bold 18px Space Mono, monospace'; lx.textAlign = 'left';
           const [a, b] = CORNER_ARMS[nextIdx], tx = C + (a[0] + b[0]) * 30 - (a[0] + b[0] < 0 ? 34 : 0), ty = C + (a[1] + b[1]) * 30 + 6;
-          lx.fillStyle = 'rgba(0,0,0,0.7)'; lx.fillText('90°', tx + 1, ty + 1); lx.fillStyle = '#ffffff'; lx.fillText('90°', tx, ty);
+          lx.globalAlpha = 0.8; lx.fillStyle = 'rgba(0,0,0,0.7)'; lx.fillText('90°', tx + 1, ty + 1); lx.fillStyle = AD_COLORS[nextIdx]; lx.fillText('90°', tx, ty); lx.globalAlpha = 1;
         }
         lx.fillStyle = AD_COLORS[nextIdx]; lx.beginPath(); lx.arc(C, C, 3.5, 0, Math.PI * 2); lx.fill();
         lx.font = 'bold 22px Space Mono, monospace'; lx.textAlign = 'center';
