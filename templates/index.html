@@ -922,6 +922,15 @@
 
     let adPdfBlob = null;
 
+    // ID cards are landscape: a portrait crop (card photographed sideways) is turned 90° counter-clockwise
+    // so it isn't squashed into the 85.6 × 54 mm slot. Rotate button fixes the rare upside-down case.
+    function cardToLandscape(canvas) {
+      if (canvas.height <= canvas.width) return canvas;
+      const out = document.createElement('canvas'); out.width = canvas.height; out.height = canvas.width;
+      const x = out.getContext('2d'); x.translate(0, out.height); x.rotate(-Math.PI / 2); x.drawImage(canvas, 0, 0);
+      scToast('Card was sideways — turned to landscape (use Rotate if it looks upside down)', 'ok');
+      return out;
+    }
     function rotateCanvasClockwise(source) {
       const rotated = document.createElement('canvas');
       rotated.width = source.height;
@@ -1146,7 +1155,7 @@
         const tmp = document.createElement('canvas'); tmp.width=outW; tmp.height=outH;
         cv.imshow(tmp,warped);
         src.delete(); srcPts.delete(); dstPts.delete(); M.delete(); warped.delete();
-        adFinaliseCrop(side, tmp, side.prefix==='adFront'?'Front Cropped':'Back Cropped');
+        adFinaliseCrop(side, cardToLandscape(tmp), side.prefix==='adFront'?'Front Cropped':'Back Cropped');
       } catch(err) { console.error(err); scToast('Crop failed: '+err.message,'err'); }
     }
     document.getElementById('adFrontCrop').addEventListener('click', () => { adCropSide(adFront); });
@@ -1734,7 +1743,7 @@
         cv.warpPerspective(src,warped,M,new cv.Size(outW,outH),cv.INTER_LANCZOS4,cv.BORDER_CONSTANT);
         const tmp=document.createElement('canvas');tmp.width=outW;tmp.height=outH;cv.imshow(tmp,warped);
         src.delete();srcPts.delete();dstPts.delete();M.delete();warped.delete();
-        pnFinaliseCrop(tmp,'PAN Card Cropped');
+        pnFinaliseCrop(cardToLandscape(tmp),'PAN Card Cropped');
       }catch(err){console.error(err);scToast('Crop failed: '+err.message,'err');}
     });
     document.getElementById('pnBright').addEventListener('input',()=>{pn.brightness=parseInt(document.getElementById('pnBright').value);document.getElementById('pnBrightVal').textContent=pn.brightness;showRawPreview(pn,'pnPreviewImg');if(pn._rawCanvas)pnBakeAdjusted();});
